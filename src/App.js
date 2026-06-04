@@ -1,18 +1,23 @@
 import { useState, useRef, useEffect } from "react";
 
 const C = {
-  bg: "#f8f5f0",
-  surface: "#ffffff",
-  surfaceAlt: "#faf8f4",
-  border: "#e5ddd0",
-  borderLight: "#ede8df",
-  gold: "#a07840",
-  goldLight: "#c49a5a",
-  goldFaint: "#f5ede0",
-  text: "#1c1812",
-  textSoft: "#4a4035",
-  muted: "#8c7e6e",
-  mutedLight: "#b0a494",
+  bg: "#f5f0e8",
+  surface: "#faf6ee",
+  card: "#ffffff",
+  topbar: "#1a0808",
+  border: "#d8ccb8",
+  borderDark: "#b8a890",
+  red: "#8b1a1a",
+  redMid: "#a82020",
+  redSoft: "rgba(139,26,26,0.08)",
+  redBorder: "rgba(139,26,26,0.25)",
+  black: "#111008",
+  text: "#1a1208",
+  textSub: "#3a2e20",
+  muted: "#8a7860",
+  mutedLight: "#b0a080",
+  font: "'Cormorant Garant', Georgia, serif",
+  mono: "'DM Mono', monospace",
 };
 
 export default function PolicyPal() {
@@ -27,6 +32,7 @@ export default function PolicyPal() {
   const [dragOver, setDragOver] = useState(false);
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  const textareaRef = useRef(null);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -36,24 +42,17 @@ export default function PolicyPal() {
     if (!file) return;
     setDocName(file.name);
     setMessages([]);
-
     if (file.type === "application/pdf") {
-      // Convert PDF to base64 and let Claude handle extraction
       const reader = new FileReader();
       reader.onload = (e) => {
-        const base64 = e.target.result.split(",")[1];
-        setDocBase64(base64);
+        setDocBase64(e.target.result.split(",")[1]);
         setDocIsPdf(true);
-        setDocText("__pdf__"); // signal that we have a PDF
+        setDocText("__pdf__");
       };
       reader.readAsDataURL(file);
     } else {
       const reader = new FileReader();
-      reader.onload = (e) => {
-        setDocText(e.target.result);
-        setDocBase64("");
-        setDocIsPdf(false);
-      };
+      reader.onload = (e) => { setDocText(e.target.result); setDocBase64(""); setDocIsPdf(false); };
       reader.readAsText(file);
     }
   }
@@ -62,6 +61,7 @@ export default function PolicyPal() {
     const q = (text || input).trim();
     if (!q || !docText || loading) return;
     setInput("");
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
     const newMessages = [...messages, { role: "user", content: q }];
     setMessages(newMessages);
     setLoading(true);
@@ -69,68 +69,46 @@ export default function PolicyPal() {
 
     try {
       let body;
-
       if (docIsPdf) {
-        // Send PDF as base64 document to Claude
         const userMessages = newMessages.map((m, i) => {
-          if (i === 0) {
-            // First message includes the PDF
-            return {
-              role: "user",
-              content: [
-                {
-                  type: "document",
-                  source: {
-                    type: "base64",
-                    media_type: "application/pdf",
-                    data: docBase64,
-                  },
-                },
-                { type: "text", text: m.content },
-              ],
-            };
-          }
+          if (i === 0) return { role: "user", content: [{ type: "document", source: { type: "base64", media_type: "application/pdf", data: docBase64 } }, { type: "text", text: m.content }] };
           return { role: m.role, content: m.content };
         });
-
-        body = JSON.stringify({
-          model: "claude-sonnet-4-5",
-          max_tokens: 1000,
-          system: "You are PolicyPal, an elegant and knowledgeable HR assistant. You have been given an HR policy document. Answer employee and HR questions clearly, warmly, and precisely. If something isn't covered in the document, say so gracefully. Keep responses concise but complete.",
-          messages: userMessages,
-        });
+        body = JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1000, system: "You are PolicyPal, a precise and authoritative HR policy assistant. Answer questions based strictly on the uploaded policy document. Be clear and direct. Use bullet points where helpful. If something isn't in the document, say so.", messages: userMessages });
       } else {
-        // Plain text document
-        body = JSON.stringify({
-          model: "claude-sonnet-4-5",
-          max_tokens: 1000,
-          system: `You are PolicyPal, an elegant and knowledgeable HR assistant. You have been given an HR policy document. Answer employee and HR questions clearly, warmly, and precisely. If something isn't covered in the document, say so gracefully. Keep responses concise but complete.\n\nHR POLICY DOCUMENT:\n${docText}`,
-          messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
-        });
+        body = JSON.stringify({ model: "claude-sonnet-4-5", max_tokens: 1000, system: `You are PolicyPal, a precise and authoritative HR policy assistant. Answer questions based strictly on the policy document below. Be clear and direct. Use bullet points where helpful.\n\nPOLICY DOCUMENT:\n${docText}`, messages: newMessages.map(m => ({ role: m.role, content: m.content })) });
       }
 
       const res = await fetch("/api/v1/messages", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": process.env.REACT_APP_API_KEY,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
-          "anthropic-beta": "pdfs-2024-09-25",
-        },
+        headers: { "Content-Type": "application/json", "x-api-key": process.env.REACT_APP_API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true", "anthropic-beta": "pdfs-2024-09-25" },
         body,
       });
 
       if (!res.ok) { setError(`Error ${res.status}`); setLoading(false); return; }
       const data = await res.json();
-      const reply = data.content?.map((i) => i.text || "").join("") || "";
-      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+      const reply = data.content?.map(i => i.text || "").join("") || "";
+      setMessages(prev => [...prev, { role: "assistant", content: reply }]);
     } catch (e) { setError(e.message); }
     setLoading(false);
   }
 
+  function renderMessage(text) {
+    return text.split('\n').map((line, i) => {
+      if (line.startsWith('# ')) return <p key={i} style={{ fontFamily: C.font, fontWeight: 700, fontStyle: "italic", color: C.red, margin: "10px 0 4px", fontSize: "1rem" }}>{line.replace('# ', '')}</p>;
+      if (line.startsWith('## ')) return <p key={i} style={{ fontSize: "0.7rem", fontWeight: 700, color: C.muted, margin: "8px 0 3px", letterSpacing: "0.14em", textTransform: "uppercase", fontFamily: C.mono }}>{line.replace('## ', '')}</p>;
+      if (line.startsWith('- ')) {
+        const parts = line.replace('- ', '').split(/\*\*(.*?)\*\*/g);
+        return <div key={i} style={{ display: "flex", gap: 10, margin: "4px 0", alignItems: "flex-start" }}><span style={{ color: C.red, flexShrink: 0, marginTop: 2, fontSize: "0.7rem" }}>◆</span><span style={{ fontSize: "0.82rem", color: C.textSub, lineHeight: 1.65 }}>{parts.map((p, j) => j % 2 === 1 ? <strong key={j} style={{ color: C.text }}>{p}</strong> : p)}</span></div>;
+      }
+      if (!line.trim()) return <div key={i} style={{ height: 6 }} />;
+      const parts = line.split(/\*\*(.*?)\*\*/g);
+      return <p key={i} style={{ margin: "2px 0", lineHeight: 1.75, fontSize: "0.82rem", color: C.textSub }}>{parts.map((p, j) => j % 2 === 1 ? <strong key={j} style={{ color: C.text }}>{p}</strong> : p)}</p>;
+    });
+  }
+
   const SUGGESTIONS = [
-    "What is the annual leave entitlement?",
+    "What is the leave entitlement?",
     "How do I raise a grievance?",
     "What are the remote work guidelines?",
     "Explain the performance review process",
@@ -138,148 +116,166 @@ export default function PolicyPal() {
 
   return (
     <>
-      <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+      <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garant:ital,wght@0,400;0,600;0,700;1,400;1,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
       <style>{`
         *{box-sizing:border-box;margin:0;padding:0}
         body{background:${C.bg}}
         ::-webkit-scrollbar{width:3px}
-        ::-webkit-scrollbar-track{background:transparent}
         ::-webkit-scrollbar-thumb{background:${C.border};border-radius:4px}
-        @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes pulse{0%,100%{opacity:0.25;transform:scale(0.75)}50%{opacity:0.8;transform:scale(1)}}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+        @keyframes blink{0%,100%{opacity:0.15}50%{opacity:0.8}}
         .msg{animation:fadeUp 0.3s ease forwards}
-        .dot{animation:pulse 1.5s ease infinite}
-        .dot:nth-child(2){animation-delay:0.2s}
-        .dot:nth-child(3){animation-delay:0.4s}
-        .sug:hover{background:${C.goldFaint}!important;border-color:${C.goldLight}!important;color:${C.gold}!important}
-        .send-btn:hover:not(:disabled){background:${C.text}!important}
-        textarea:focus{border-color:${C.goldLight}!important;outline:none}
-        .drop-zone:hover{border-color:${C.goldLight}!important}
-        .change-btn:hover{color:${C.gold}!important}
+        .dot{animation:blink 1.4s ease infinite}
+        .dot:nth-child(2){animation-delay:0.25s}
+        .dot:nth-child(3){animation-delay:0.5s}
+        .sug:hover{background:${C.redSoft}!important;border-color:${C.red}!important;color:${C.red}!important}
+        textarea:focus{outline:none;border-color:${C.red}!important;box-shadow:0 0 0 3px ${C.redSoft}!important}
+        .upload-zone:hover{border-color:${C.red}!important}
+        button:hover{opacity:0.85}
       `}</style>
 
-      <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'DM Sans', sans-serif", display: "flex", flexDirection: "column" }}>
-        <div style={{ height: "2px", background: `linear-gradient(90deg, ${C.bg}, ${C.goldLight}, ${C.bg})` }} />
+      <div style={{ minHeight: "100vh", background: C.bg, fontFamily: C.font, display: "flex", flexDirection: "column" }}>
 
-        <header style={{ background: C.surface, borderBottom: `1px solid ${C.borderLight}`, padding: "1.1rem 2.5rem" }}>
-          <div style={{ maxWidth: "700px", margin: "0 auto", display: "flex", alignItems: "center", gap: "1rem" }}>
-            <div style={{ width: "38px", height: "38px", border: `1.5px solid ${C.gold}`, borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", color: C.gold, fontSize: "1rem", flexShrink: 0 }}>◈</div>
-            <div style={{ flex: 1 }}>
-              <h1 style={{ fontFamily: "'Libre Baskerville', serif", fontSize: "1.25rem", fontWeight: "700", color: C.text, letterSpacing: "0.01em" }}>PolicyPal</h1>
-              <p style={{ fontSize: "0.65rem", color: C.mutedLight, letterSpacing: "0.18em", textTransform: "uppercase", marginTop: "1px" }}>HR Policy Assistant · by Divyah</p>
-            </div>
-            {docName && (
-              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                <span style={{ fontSize: "0.72rem", color: C.gold, fontWeight: "500" }}>{docName.slice(0, 22)}{docName.length > 22 ? "…" : ""}</span>
-                <button className="change-btn" onClick={() => { setDocText(""); setDocName(""); setDocBase64(""); setDocIsPdf(false); setMessages([]); }} style={{ background: "none", border: "none", color: C.muted, fontSize: "0.7rem", cursor: "pointer", letterSpacing: "0.08em", textDecoration: "underline", textUnderlineOffset: "3px", transition: "color 0.2s" }}>change</button>
-              </div>
-            )}
+        {/* Topbar */}
+        <div style={{ background: C.topbar, padding: "0 36px", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `3px solid ${C.red}` }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
+            <h1 style={{ fontSize: 22, fontWeight: 600, fontStyle: "italic", color: "#f5f0e8", margin: 0, fontFamily: C.font, letterSpacing: "0.01em" }}>PolicyPal</h1>
+            <span style={{ fontSize: 9, color: "rgba(245,240,232,0.3)", letterSpacing: "0.2em", textTransform: "uppercase", fontFamily: C.mono }}>by Divyah</span>
           </div>
-        </header>
-
-        <main style={{ flex: 1, maxWidth: "700px", width: "100%", margin: "0 auto", padding: "2rem 1.5rem 0", display: "flex", flexDirection: "column" }}>
-          {!docText ? (
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "2.5rem", paddingBottom: "5rem" }}>
-              <div style={{ textAlign: "center" }}>
-                <p style={{ fontSize: "0.65rem", color: C.gold, letterSpacing: "0.25em", textTransform: "uppercase", marginBottom: "1.25rem" }}>HR Intelligence</p>
-                <h2 style={{ fontFamily: "'Libre Baskerville', serif", fontSize: "2.4rem", fontWeight: "700", color: C.text, lineHeight: 1.2, marginBottom: "1.25rem" }}>
-                  Your policies,<br /><em style={{ color: C.gold, fontWeight: "400" }}>answered simply.</em>
-                </h2>
-                <div style={{ width: "40px", height: "1px", background: C.goldLight, margin: "0 auto 1.25rem" }} />
-                <p style={{ fontSize: "0.85rem", color: C.muted, lineHeight: 1.8, maxWidth: "380px", fontWeight: "300" }}>
-                  Upload any HR policy document (PDF or TXT). Ask questions in plain language. Get precise answers instantly.
-                </p>
+          {docName && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, border: `1px solid rgba(139,26,26,0.5)`, borderRadius: 3, padding: "4px 12px", background: "rgba(139,26,26,0.15)" }}>
+                <span style={{ fontSize: 9, color: "#c84040", fontFamily: C.mono, letterSpacing: "0.1em" }}>◆</span>
+                <span style={{ fontSize: 11, color: "#e0b0b0", fontFamily: C.mono }}>{docName.slice(0, 24)}{docName.length > 24 ? "…" : ""}</span>
               </div>
-
-              <div
-                className="drop-zone"
-                style={{ width: "100%", maxWidth: "460px", background: C.surface, border: `1.5px dashed ${dragOver ? C.goldLight : C.border}`, borderRadius: "16px", padding: "3rem 2.5rem", textAlign: "center", cursor: "pointer", transition: "all 0.25s" }}
-                onClick={() => fileInputRef.current?.click()}
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFile(e.dataTransfer.files[0]); }}
-              >
-                <div style={{ width: "52px", height: "52px", border: `1.5px solid ${C.border}`, borderRadius: "14px", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.25rem", color: C.gold, fontSize: "1.4rem" }}>◈</div>
-                <div style={{ fontFamily: "'Libre Baskerville', serif", fontSize: "1.05rem", color: C.text, marginBottom: "0.5rem" }}>Drop your document here</div>
-                <div style={{ fontSize: "0.75rem", color: C.muted, marginBottom: "1.75rem", lineHeight: 1.7, fontWeight: "300" }}>PDF or TXT · drag & drop or browse</div>
-                <button style={{ background: C.text, color: C.surface, border: "none", borderRadius: "8px", padding: "0.7rem 1.75rem", fontSize: "0.73rem", fontWeight: "500", cursor: "pointer", letterSpacing: "0.1em", textTransform: "uppercase" }}>Choose File</button>
-                <input ref={fileInputRef} type="file" accept=".txt,.md,.pdf" style={{ display: "none" }} onChange={(e) => handleFile(e.target.files[0])} />
-              </div>
-
-              <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", justifyContent: "center" }}>
-                {["Leave", "Remote Work", "Grievances", "Benefits", "Performance"].map((t, i) => (
-                  <span key={i} style={{ border: `1px solid ${C.borderLight}`, borderRadius: "20px", padding: "0.3rem 0.85rem", fontSize: "0.68rem", color: C.mutedLight, letterSpacing: "0.08em" }}>{t}</span>
-                ))}
-              </div>
+              <button onClick={() => { setDocText(""); setDocName(""); setDocBase64(""); setDocIsPdf(false); setMessages([]); }} style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 2, color: "rgba(255,255,255,0.4)", fontSize: 9, padding: "4px 12px", cursor: "pointer", fontFamily: C.mono, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                Change
+              </button>
             </div>
-          ) : (
-            <>
-              <div style={{ flex: 1, overflowY: "auto", paddingBottom: "1rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-                {messages.length === 0 && (
-                  <div className="msg" style={{ background: C.surface, border: `1px solid ${C.borderLight}`, borderRadius: "16px", padding: "1.75rem" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.85rem", marginBottom: "1.25rem" }}>
-                      <div style={{ width: "36px", height: "36px", border: `1.5px solid ${C.gold}`, borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center", color: C.gold, fontSize: "0.9rem", flexShrink: 0 }}>◈</div>
-                      <div>
-                        <div style={{ fontFamily: "'Libre Baskerville', serif", fontSize: "1rem", color: C.text }}>Good day. I'm PolicyPal.</div>
-                        <div style={{ fontSize: "0.68rem", color: C.mutedLight, marginTop: "2px", letterSpacing: "0.05em" }}>Document loaded — ask me anything</div>
+          )}
+        </div>
+
+        {!docText ? (
+          /* Upload screen */
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 24px", gap: 48 }}>
+
+            {/* Hero */}
+            <div style={{ textAlign: "center", maxWidth: 520 }}>
+              <p style={{ fontSize: 9, letterSpacing: "0.22em", textTransform: "uppercase", color: C.red, fontFamily: C.mono, margin: "0 0 16px" }}>HR Intelligence · PolicyPal</p>
+              <h2 style={{ fontSize: 50, fontWeight: 400, fontStyle: "italic", color: C.text, margin: "0 0 16px", lineHeight: 1.05, letterSpacing: "-0.01em" }}>
+                Stop reading policies.<br /><span style={{ color: C.red }}>Start asking them.</span>
+              </h2>
+              <div style={{ width: 48, height: 2, background: C.red, margin: "0 auto 20px" }} />
+              <p style={{ fontSize: 15, color: C.text, lineHeight: 1.8, margin: "0 0 8px", fontFamily: C.font, fontStyle: "italic", fontWeight: 600 }}>Your HR team can't answer at 11pm. We can.</p>
+              <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.8, margin: 0, fontFamily: C.mono }}>Upload any policy document and get instant answers.</p>
+            </div>
+
+            {/* Upload zone */}
+            <div
+              className="upload-zone"
+              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={e => { e.preventDefault(); setDragOver(false); handleFile(e.dataTransfer.files[0]); }}
+              onClick={() => fileInputRef.current?.click()}
+              style={{ width: "100%", maxWidth: 480, border: `1.5px dashed ${dragOver ? C.red : C.red}`, borderRadius: 4, padding: "48px 40px", textAlign: "center", cursor: "pointer", background: dragOver ? C.redSoft : C.surface, transition: "all 0.2s", boxShadow: `inset 0 0 0 4px ${C.redSoft}` }}
+            >
+              <p style={{ fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase", color: C.muted, fontFamily: C.mono, margin: "0 0 14px" }}>Drop document here</p>
+              <p style={{ fontSize: 28, fontStyle: "italic", color: C.text, fontFamily: C.font, margin: "0 0 6px" }}>PDF or TXT</p>
+              <p style={{ fontSize: 11, color: C.mutedLight, fontFamily: C.mono, margin: "0 0 24px" }}>drag & drop or click to browse</p>
+              <div style={{ display: "inline-block", background: C.topbar, color: "#f5f0e8", borderRadius: 2, padding: "10px 28px", fontSize: 10, fontFamily: C.mono, letterSpacing: "0.14em", textTransform: "uppercase", borderBottom: `2px solid ${C.red}` }}>Browse Files</div>
+              <input ref={fileInputRef} type="file" accept=".txt,.md,.pdf" style={{ display: "none" }} onChange={e => handleFile(e.target.files[0])} />
+            </div>
+
+            {/* Suggestion pills */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", maxWidth: 480 }}>
+              {SUGGESTIONS.map((s, i) => (
+                <div key={i} style={{ border: `1px solid ${C.redBorder}`, borderRadius: 2, padding: "5px 14px", fontSize: 11, color: C.red, fontFamily: C.mono, letterSpacing: "0.04em", background: C.redSoft }}>{s}</div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          /* Chat screen */
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", maxWidth: 760, width: "100%", margin: "0 auto", padding: "0 24px" }}>
+
+            <div style={{ flex: 1, overflowY: "auto", padding: "32px 0 12px", display: "flex", flexDirection: "column", gap: 20 }}>
+
+              {messages.length === 0 && (
+                <div className="msg" style={{ background: C.surface, border: `1px solid ${C.border}`, borderLeft: `4px solid ${C.red}`, borderRadius: 4, padding: "24px 28px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${C.redBorder}` }}>
+                    <span style={{ fontSize: 10, color: C.red, fontFamily: C.mono, letterSpacing: "0.14em", fontWeight: 700 }}>◆ POLICYPAL</span>
+                    <span style={{ fontSize: 10, color: C.mutedLight, fontFamily: C.mono }}>Document loaded · ready to answer</span>
+                  </div>
+                  <p style={{ fontSize: 13, color: C.textSub, lineHeight: 1.7, margin: "0 0 16px", fontFamily: C.mono }}>I've read your policy document. Here are some questions to get you started:</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    {SUGGESTIONS.map((s, i) => (
+                      <button key={i} className="sug" onClick={() => sendMessage(s)} style={{ background: C.redSoft, border: `1px solid ${C.redBorder}`, borderRadius: 3, padding: "10px 14px", fontSize: 12, color: C.red, cursor: "pointer", textAlign: "left", fontFamily: C.mono, transition: "all 0.15s", lineHeight: 1.4 }}>{s}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {messages.map((m, i) => (
+                <div key={i} className="msg">
+                  {m.role === "user" ? (
+                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                      <div style={{ maxWidth: "72%", padding: "12px 16px", background: C.topbar, borderRadius: "4px 4px 0 4px", borderBottom: `2px solid ${C.red}` }}>
+                        <p style={{ fontSize: 13, color: "#f5f0e8", margin: 0, lineHeight: 1.65, fontFamily: C.mono }}>{m.content}</p>
                       </div>
                     </div>
-                    <div style={{ height: "1px", background: C.borderLight, marginBottom: "1.25rem" }} />
-                    <p style={{ fontSize: "0.8rem", color: C.muted, lineHeight: 1.8, marginBottom: "1.1rem", fontWeight: "300" }}>I've read your policy document carefully. Here are some things people typically ask:</p>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
-                      {SUGGESTIONS.map((s, i) => (
-                        <button key={i} className="sug" onClick={() => sendMessage(s)} style={{ background: C.surfaceAlt, border: `1px solid ${C.borderLight}`, borderRadius: "8px", padding: "0.7rem 0.9rem", fontSize: "0.73rem", color: C.muted, cursor: "pointer", textAlign: "left", fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s", lineHeight: 1.45 }}>{s}</button>
-                      ))}
+                  ) : (
+                    <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                      <div style={{ width: 22, height: 22, border: `1px solid ${C.red}`, borderRadius: 2, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
+                        <span style={{ fontSize: 8, color: C.red }}>◆</span>
+                      </div>
+                      <div style={{ flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: "4px 4px 4px 0", padding: "14px 18px" }}>
+                        {renderMessage(m.content)}
+                      </div>
                     </div>
+                  )}
+                </div>
+              ))}
+
+              {loading && (
+                <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <div style={{ width: 22, height: 22, border: `1px solid ${C.red}`, borderRadius: 2, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
+                    <span style={{ fontSize: 8, color: C.red }}>◆</span>
                   </div>
-                )}
-
-                {messages.map((m, i) => (
-                  <div key={i} className="msg" style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start", gap: "0.6rem", alignItems: "flex-end" }}>
-                    {m.role === "assistant" && (
-                      <div style={{ width: "28px", height: "28px", border: `1.5px solid ${C.gold}`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: C.gold, fontSize: "0.65rem", flexShrink: 0 }}>◈</div>
-                    )}
-                    <div style={{ maxWidth: "74%", padding: "0.9rem 1.2rem", borderRadius: m.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px", background: m.role === "user" ? C.text : C.surface, color: m.role === "user" ? C.bg : C.textSoft, fontSize: "0.82rem", lineHeight: "1.7", border: m.role === "user" ? "none" : `1px solid ${C.borderLight}`, whiteSpace: "pre-wrap", fontWeight: "300" }}>
-                      {m.content}
-                    </div>
+                  <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: "4px 4px 4px 0", padding: "14px 18px", display: "flex", gap: 6, alignItems: "center" }}>
+                    {[0,1,2].map(i => <div key={i} className="dot" style={{ width: 6, height: 6, borderRadius: "50%", background: C.red }} />)}
                   </div>
-                ))}
+                </div>
+              )}
 
-                {loading && (
-                  <div style={{ display: "flex", alignItems: "flex-end", gap: "0.6rem" }}>
-                    <div style={{ width: "28px", height: "28px", border: `1.5px solid ${C.gold}`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: C.gold, fontSize: "0.65rem", flexShrink: 0 }}>◈</div>
-                    <div style={{ background: C.surface, border: `1px solid ${C.borderLight}`, borderRadius: "16px 16px 16px 4px", padding: "0.9rem 1.1rem", display: "flex", gap: "5px", alignItems: "center" }}>
-                      {[0,1,2].map(i => <div key={i} className="dot" style={{ width: "6px", height: "6px", borderRadius: "50%", background: C.goldLight }} />)}
-                    </div>
-                  </div>
-                )}
+              {error && <div style={{ background: "#fdf0f0", border: `1px solid ${C.red}`, borderRadius: 3, padding: "10px 14px", fontSize: 11, color: C.red, fontFamily: C.mono }}>{error}</div>}
+              <div ref={chatEndRef} />
+            </div>
 
-                {error && <div style={{ background: "#fdf0f0", border: "1px solid #e8c8c8", borderRadius: "10px", padding: "0.75rem 1rem", fontSize: "0.75rem", color: "#a05050" }}>{error}</div>}
-                <div ref={chatEndRef} />
-              </div>
+            {/* Divider */}
+            <div style={{ height: 1, background: C.borderDark, margin: "0 -24px" }} />
 
-              <div style={{ height: "1px", background: `linear-gradient(90deg, ${C.bg}, ${C.border}, ${C.bg})`, margin: "0 -1.5rem" }} />
-
-              <div style={{ background: C.surface, padding: "1rem 0 1.25rem", display: "flex", gap: "0.75rem", alignItems: "flex-end", position: "sticky", bottom: 0, marginLeft: "-1.5rem", marginRight: "-1.5rem", paddingLeft: "1.5rem", paddingRight: "1.5rem", borderTop: `1px solid ${C.borderLight}` }}>
+            {/* Input */}
+            <div style={{ padding: "16px 0 24px", position: "sticky", bottom: 0, background: C.bg }}>
+              <div style={{ display: "flex", gap: 10, alignItems: "flex-end", background: C.surface, border: `1px solid ${C.borderDark}`, borderRadius: 4, padding: "10px 10px 10px 16px" }}>
                 <textarea
-                  style={{ flex: 1, background: C.surfaceAlt, border: `1px solid ${C.border}`, borderRadius: "10px", padding: "0.8rem 1rem", fontFamily: "'DM Sans', sans-serif", fontSize: "0.82rem", color: C.text, resize: "none", lineHeight: "1.5", maxHeight: "120px", transition: "border-color 0.2s", fontWeight: "300" }}
+                  ref={textareaRef}
+                  style={{ flex: 1, background: "transparent", border: "none", color: C.text, fontFamily: C.mono, fontSize: 13, resize: "none", lineHeight: 1.6, maxHeight: 120, outline: "none", padding: "2px 0" }}
                   placeholder="Ask about any policy..."
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
                   rows={1}
+                  onChange={e => { setInput(e.target.value); e.target.style.height = "auto"; e.target.style.height = e.target.scrollHeight + "px"; }}
+                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
                 />
                 <button
-                  className="send-btn"
                   disabled={!input.trim() || loading}
                   onClick={() => sendMessage()}
-                  style={{ width: "40px", height: "40px", borderRadius: "10px", background: !input.trim() || loading ? C.borderLight : C.text, border: "none", cursor: !input.trim() || loading ? "not-allowed" : "pointer", color: !input.trim() || loading ? C.muted : C.surface, fontSize: "1rem", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.2s" }}>
+                  style={{ width: 36, height: 36, borderRadius: 3, background: !input.trim() || loading ? C.border : C.topbar, border: !input.trim() || loading ? "none" : `2px solid ${C.red}`, cursor: !input.trim() || loading ? "not-allowed" : "pointer", color: !input.trim() || loading ? C.muted : "#f5f0e8", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s", fontFamily: C.mono }}>
                   ↑
                 </button>
               </div>
-            </>
-          )}
-        </main>
+              <p style={{ fontSize: 9, color: C.mutedLight, textAlign: "center", marginTop: 8, fontFamily: C.mono, letterSpacing: "0.08em" }}>ENTER TO SEND · SHIFT+ENTER FOR NEW LINE</p>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );
