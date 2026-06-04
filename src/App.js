@@ -67,7 +67,7 @@ export default function PolicyPal() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": "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",
+          "x-api-key": "YOUR_API_KEY_HERE",
           "anthropic-version": "2023-06-01",
           "anthropic-dangerous-direct-browser-access": "true",
         },
