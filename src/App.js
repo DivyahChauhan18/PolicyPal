@@ -50,9 +50,11 @@ const EASE = "cubic-bezier(0.23, 1, 0.32, 1)";
 /* ── Message renderer ── */
 function renderMsg(text) {
   return text.split('\n').map((line, i) => {
-    if (line.startsWith('# '))  return <p key={i} style={{ fontFamily:C.serif, fontWeight:700, fontStyle:"italic", color:C.sage, margin:"12px 0 4px", fontSize:"1rem" }}>{line.slice(2)}</p>;
-    if (line.startsWith('## ')) return <p key={i} style={{ fontSize:"0.6rem", fontWeight:700, color:C.gold, margin:"10px 0 4px", letterSpacing:"0.2em", textTransform:"uppercase", fontFamily:C.mono }}>{line.slice(3)}</p>;
-    if (line.startsWith('- '))  {
+    if (line.startsWith('### ')) return <p key={i} style={{ fontFamily:C.serif, fontWeight:700, fontStyle:"italic", color:C.sage, margin:"12px 0 4px", fontSize:"1rem" }}>{line.slice(4)}</p>;
+    if (line.startsWith('## '))  return <p key={i} style={{ fontFamily:C.serif, fontWeight:700, fontStyle:"italic", color:C.sage, margin:"12px 0 4px", fontSize:"1rem" }}>{line.slice(3)}</p>;
+    if (line.startsWith('# '))   return <p key={i} style={{ fontFamily:C.serif, fontWeight:700, fontStyle:"italic", color:C.sage, margin:"12px 0 4px", fontSize:"1rem" }}>{line.slice(2)}</p>;
+    if (line.startsWith('**') && line.endsWith('**') && line.length > 4) return <p key={i} style={{ fontSize:"0.6rem", fontWeight:700, color:C.gold, margin:"10px 0 4px", letterSpacing:"0.2em", textTransform:"uppercase", fontFamily:C.mono }}>{line.slice(2,-2)}</p>;
+    if (line.startsWith('- ') || line.startsWith('* '))  {
       const pts = line.slice(2).split(/\*\*(.*?)\*\*/g);
       return <div key={i} style={{ display:"flex", gap:10, margin:"5px 0", paddingLeft:12, borderLeft:`2px solid ${C.goldLine}` }}>
         <span style={{ fontSize:"0.82rem", color:C.inkMid, lineHeight:1.78, fontFamily:C.body }}>
@@ -235,9 +237,8 @@ export default function PolicyPal() {
 
         {/* THE CARD — hotel terminal */}
         <div style={{
-          width:"100%", maxWidth:660,
-          height:"calc(100vh - 48px)",
-          maxHeight:860,
+          width:"100%", maxWidth:700,
+          height:"calc(100vh - 32px)",
           background:C.cream,
           border:`1px solid ${C.border}`,
           borderRadius:4,
