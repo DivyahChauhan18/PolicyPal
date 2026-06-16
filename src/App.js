@@ -1,520 +1,394 @@
-import { useState, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { motion, AnimatePresence, useSpring, useMotionValue } from "framer-motion";
 
 /* ═══════════════════════════════════════════════════════════
-   POLICYPAL — Copper & Void
-   Industrial Cosmic. A Victorian brass observatory
-   floating in deep space. Copper pipes carry data.
-   Gears turn slowly behind glass. The policy document
-   arrives by pneumatic tube.
+   POLICYPAL — Platinum Terminal
    
-   Palette:
-   - #0A0500  scorched void — dark brown-black
-   - #130A02  furnace surface
-   - #1E1005  raised brass panel
-   - #2A1608  high panel
-   - #FF6B35  electric copper — the ONE hot accent
-   - #B8860B  aged brass — secondary warm
-   - #8B4513  mahogany — deep mid-tone
-   - #F5DEB3  wheat — warm ink (never cold white)
-   - #FFD580  pale gold — data highlights
+   Reference: Bloomberg Pro + Patek Philippe + Vercel Pro.
+   The interface that costs money because every detail
+   is considered. Nothing is accidental. Everything moves
+   with mechanical precision.
    
-   Signature elements:
-   1. GEAR CANVAS — two interlocked gears turn slowly
-      behind everything. Copper on void. One large,
-      one small, meshed. Speed: 1 rotation per 20s.
-      GPU canvas, composited layer.
-   2. PRESSURE GAUGE LOGO — an SVG arc gauge around
-      the P. Needle twitches to a new random "pressure"
-      reading each time a message is sent.
-   3. STEAM VENT — on message send, particle puffs
-      fire upward from the input using canvas.
+   Palette — Platinum & Obsidian:
+   - #0E0E10  near-black, cool blue-grey undertone
+   - #1C1C20  surface — dark steel
+   - #252530  raised — lifted panel
+   - #2E2E3A  high panel
+   - #C8A96E  champagne gold — THE accent, used sparingly
+   - #8892A4  steel blue-grey — mid tone
+   - #F8F8F8  near-white ink
+   - #3A3A4A  border steel
    
-   All motion from previous version kept and re-toned:
-   - Message bubbles float continuously after arrival
-   - Sidebar items sway independently
-   - Welcome card hangs with rotation
-   - Doc badge pendulum swings
-   - Nebula orbs drift on multi-point paths
-   - Send button heartbeat pulse
-   - Input breathing ring on focus
-   - Dramatic meteor entrances (y:-28)
-   - Shooting star on send (now copper-toned)
+   Motion — Swiss watch mechanism:
+   1. SWEEP HAND CANVAS — a thin precision line rotates
+      continuously in the header. Speed increases when
+      a query is processing. The terminal is alive.
+   2. TICKER NUMBERS — stat numbers count up from 0
+      on mount with spring physics. Premium feel.
+   3. LAYOUT MORPH — when document loads, the sidebar
+      expands and panels slide into new positions.
+      The dashboard reconfigures. One deliberate moment.
+   4. LIVE TIMESTAMPS — each message shows "0s ago",
+      "1s ago", "2s ago"... ticking up in real time.
+   5. SIGNAL BAR — a horizontal bar in the header
+      that fills and empties like a data stream.
+   6. PANEL SCAN — when you send a message, a thin
+      gold line sweeps across the input from left to
+      right before firing. Mechanical, not cosmic.
+   7. HOVER LIFT — cards lift 2px with border highlight
+      on hover. Everything responds to presence.
+   8. PRESSURE INDICATOR — query count shown as a
+      live bar that grows with each message.
+   
+   All features from previous builds:
+   - Typewriter responses
+   - Follow-up suggestions  
+   - Copy button
+   - Document summary
+   - Search/highlight
+   - No glow. Hard edges. Precise.
 ═══════════════════════════════════════════════════════════ */
 
 const C = {
-  void:         "#0A0500",
-  furnace:      "#130A02",
-  surface:      "#1E1005",
-  raised:       "#2A1608",
-  high:         "#36200A",
-  copper:       "#FF6B35",
-  copperBright: "#FF8555",
-  copperDeep:   "#D4521A",
-  copperGlow:   "rgba(255,107,53,0.32)",
-  copperTrace:  "rgba(255,107,53,0.12)",
-  copperFaint:  "rgba(255,107,53,0.05)",
-  brass:        "#B8860B",
-  brassGlow:    "rgba(184,134,11,0.28)",
-  brassTrace:   "rgba(184,134,11,0.10)",
-  mahogany:     "#8B4513",
-  wheat:        "#F5DEB3",
-  wheatOff:     "rgba(245,222,179,0.88)",
-  wheatMid:     "rgba(245,222,179,0.58)",
-  wheatDim:     "rgba(245,222,179,0.32)",
-  wheatFaint:   "rgba(245,222,179,0.14)",
-  wheatTrace:   "rgba(245,222,179,0.06)",
-  gold:         "#FFD580",
-  goldGlow:     "rgba(255,213,128,0.22)",
-  glass:        "rgba(255,107,53,0.04)",
-  glassMid:     "rgba(255,107,53,0.07)",
-  glassHigh:    "rgba(255,107,53,0.11)",
-  border:       "rgba(184,134,11,0.22)",
-  borderMid:    "rgba(184,134,11,0.38)",
-  borderHigh:   "rgba(255,107,53,0.55)",
+  void:         "#0E0E10",
+  surface:      "#1C1C20",
+  raised:       "#252530",
+  high:         "#2E2E3A",
+  panel:        "#1A1A22",
+  gold:         "#C8A96E",
+  goldDim:      "rgba(200,169,110,0.45)",
+  goldFaint:    "rgba(200,169,110,0.12)",
+  goldTrace:    "rgba(200,169,110,0.06)",
+  steel:        "#8892A4",
+  steelDim:     "rgba(136,146,164,0.45)",
+  steelFaint:   "rgba(136,146,164,0.12)",
+  border:       "rgba(58,58,74,0.9)",
+  borderMid:    "rgba(136,146,164,0.25)",
+  borderHigh:   "rgba(200,169,110,0.45)",
+  ink:          "#F8F8F8",
+  inkOff:       "rgba(248,248,248,0.88)",
+  inkMid:       "rgba(248,248,248,0.58)",
+  inkDim:       "rgba(248,248,248,0.32)",
+  inkFaint:     "rgba(248,248,248,0.12)",
+  inkTrace:     "rgba(248,248,248,0.05)",
+  positive:     "#4CAF76",
+  positivePale: "rgba(76,175,118,0.10)",
+  negative:     "#E05555",
+  negativePale: "rgba(224,85,85,0.10)",
+  neutral:      "#C8A96E",
   display:      "'Syne', system-ui, sans-serif",
+  body:         "'Inter', system-ui, sans-serif",
   mono:         "'JetBrains Mono', monospace",
 };
 
 const SP = {
-  gravity: { type:"spring", stiffness:240, damping:22, mass:1.6 },
-  snap:    { type:"spring", stiffness:500, damping:32 },
+  // Mechanical — precise, no bounce
+  mech:    { type:"spring", stiffness:600, damping:40, mass:0.8 },
+  // Smooth — panel transitions
+  smooth:  { type:"spring", stiffness:280, damping:32, mass:1 },
+  // Press — tactile
   press:   { type:"spring", stiffness:600, damping:36, mass:0.8 },
-  orbit:   { duration:20, repeat:Infinity, ease:"linear" },
-  sway:    { duration:4, repeat:Infinity, ease:"easeInOut", repeatType:"mirror" },
+  // Tick — instant settle, like a watch hand
+  tick:    { type:"spring", stiffness:800, damping:45 },
+  // Number — weighted count
+  number:  { type:"spring", stiffness:120, damping:20, mass:1.4 },
 };
 
 /* ══════════════════════════════════════════════════════════
-   GEAR CANVAS — signature element #1
-   
-   Two interlocked brass gears turn slowly behind everything.
-   Large gear: 20s/rotation. Small gear: 8s (gear ratio 2.5).
-   Copper-toned teeth, aged brass fill, void background.
-   Steam particles drift upward from the gear center.
-   On steamVent() call: burst of particles from input.
+   SWEEP HAND CANVAS — signature element
+   A thin precision line rotates in the header corner.
+   Slow: 8s/rotation at idle.
+   Fast: 1s/rotation when loading.
+   The terminal is always alive.
 ══════════════════════════════════════════════════════════ */
-function GearCanvas({ steamRef }) {
+function SweepHand({ loading }) {
   const canvasRef = useRef(null);
   const frameRef = useRef(null);
-  const particlesRef = useRef([]);
   const angleRef = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
+    const SIZE = 48;
+    canvas.width = SIZE;
+    canvas.height = SIZE;
+    const cx = SIZE / 2, cy = SIZE / 2, r = SIZE / 2 - 4;
 
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-    resize();
-    window.addEventListener("resize", resize);
+    const draw = () => {
+      ctx.clearRect(0, 0, SIZE, SIZE);
+      const speed = loading ? 0.04 : 0.008;
+      angleRef.current += speed;
 
-    // Steam vent trigger
-    if (steamRef) {
-      steamRef.current = (fx, fy) => {
-        for (let i = 0; i < 18; i++) {
-          particlesRef.current.push({
-            x: fx + (Math.random() - 0.5) * 30,
-            y: fy,
-            vx: (Math.random() - 0.5) * 2.5,
-            vy: -(Math.random() * 4 + 2),
-            life: 1,
-            r: Math.random() * 6 + 3,
-            type: "steam",
-          });
-        }
-        // Shooting streak
-        particlesRef.current.push({
-          x: fx, y: fy,
-          vx: (Math.random() - 0.4) * 6,
-          vy: -(Math.random() * 7 + 8),
-          life: 1, r: 0, len: 60, type: "streak",
-        });
-      };
-    }
-
-    function drawGear(cx, cy, outerR, innerR, teeth, angle, fillColor, strokeColor, alpha) {
-      const toothAngle = (Math.PI * 2) / teeth;
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.translate(cx, cy);
-      ctx.rotate(angle);
-
-      // Gear body
+      // Track rings
       ctx.beginPath();
-      for (let i = 0; i < teeth; i++) {
-        const a1 = i * toothAngle - toothAngle * 0.2;
-        const a2 = i * toothAngle + toothAngle * 0.2;
-        const a3 = i * toothAngle + toothAngle * 0.5 - toothAngle * 0.2;
-        const a4 = i * toothAngle + toothAngle * 0.5 + toothAngle * 0.2;
-        ctx.lineTo(Math.cos(a1) * innerR, Math.sin(a1) * innerR);
-        ctx.lineTo(Math.cos(a2) * outerR, Math.sin(a2) * outerR);
-        ctx.lineTo(Math.cos(a3) * outerR, Math.sin(a3) * outerR);
-        ctx.lineTo(Math.cos(a4) * innerR, Math.sin(a4) * innerR);
-      }
-      ctx.closePath();
-      ctx.fillStyle = fillColor;
-      ctx.fill();
-      ctx.strokeStyle = strokeColor;
-      ctx.lineWidth = 1.5;
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(58,58,74,0.9)";
+      ctx.lineWidth = 1;
       ctx.stroke();
 
-      // Hub circle
       ctx.beginPath();
-      ctx.arc(0, 0, innerR * 0.35, 0, Math.PI * 2);
-      ctx.fillStyle = strokeColor;
-      ctx.fill();
+      ctx.arc(cx, cy, r - 6, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(58,58,74,0.6)";
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
 
-      // Spokes
-      for (let i = 0; i < 6; i++) {
-        const a = (i / 6) * Math.PI * 2;
+      // Tick marks
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        const x1 = cx + (r - 2) * Math.cos(a);
+        const y1 = cy + (r - 2) * Math.sin(a);
+        const x2 = cx + (r - (i % 3 === 0 ? 6 : 4)) * Math.cos(a);
+        const y2 = cy + (r - (i % 3 === 0 ? 6 : 4)) * Math.sin(a);
         ctx.beginPath();
-        ctx.moveTo(Math.cos(a) * innerR * 0.38, Math.sin(a) * innerR * 0.38);
-        ctx.lineTo(Math.cos(a) * innerR * 0.78, Math.sin(a) * innerR * 0.78);
-        ctx.strokeStyle = strokeColor;
-        ctx.lineWidth = 2;
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.strokeStyle = i % 3 === 0 ? "rgba(200,169,110,0.6)" : "rgba(58,58,74,0.9)";
+        ctx.lineWidth = i % 3 === 0 ? 1.5 : 0.75;
         ctx.stroke();
       }
 
-      ctx.restore();
-    }
+      // Sweep hand
+      const hx = cx + (r - 8) * Math.cos(angleRef.current - Math.PI / 2);
+      const hy = cy + (r - 8) * Math.sin(angleRef.current - Math.PI / 2);
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(hx, hy);
+      ctx.strokeStyle = loading ? C.gold : "rgba(200,169,110,0.75)";
+      ctx.lineWidth = loading ? 1.5 : 1;
+      ctx.lineCap = "round";
+      ctx.stroke();
 
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      const W = canvas.width, H = canvas.height;
-      angleRef.current += 0.0015; // ~20s full rotation
-
-      // Large gear — bottom right
-      const lg = { cx: W * 0.82, cy: H * 0.78, r: 180, inner: 145, teeth: 24 };
-      drawGear(lg.cx, lg.cy, lg.r, lg.inner, lg.teeth, angleRef.current,
-        "rgba(26,16,5,0.85)", "rgba(184,134,11,0.30)", 0.9);
-
-      // Small gear — meshed with large, counter-rotating
-      // gear ratio = lg.teeth / sg.teeth
-      const sgTeeth = 10;
-      const ratio = lg.teeth / sgTeeth;
-      const meshDist = lg.inner + 65;
-      const sgAngle = -angleRef.current * ratio + Math.PI / sgTeeth;
-      drawGear(
-        lg.cx - meshDist * 0.7, lg.cy - meshDist * 0.6,
-        68, 52, sgTeeth, sgAngle,
-        "rgba(20,12,3,0.85)", "rgba(255,107,53,0.25)", 0.85
-      );
-
-      // Particles
-      particlesRef.current = particlesRef.current.filter(p => p.life > 0);
-      particlesRef.current.forEach(p => {
-        if (p.type === "steam") {
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
-          const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * p.life);
-          grad.addColorStop(0, `rgba(255,107,53,${p.life * 0.35})`);
-          grad.addColorStop(0.5, `rgba(184,134,11,${p.life * 0.15})`);
-          grad.addColorStop(1, "rgba(0,0,0,0)");
-          ctx.fillStyle = grad;
-          ctx.fill();
-          p.x += p.vx; p.y += p.vy;
-          p.vy -= 0.06; // steam rises
-          p.vx *= 0.98;
-          p.life -= 0.022;
-          p.r += 0.4; // expands
-        } else if (p.type === "streak") {
-          const g = ctx.createLinearGradient(p.x, p.y,
-            p.x - p.vx * (p.len / 7), p.y - p.vy * (p.len / 7));
-          g.addColorStop(0, `rgba(255,107,53,${p.life})`);
-          g.addColorStop(0.5, `rgba(184,134,11,${p.life * 0.45})`);
-          g.addColorStop(1, "rgba(0,0,0,0)");
-          ctx.beginPath();
-          ctx.moveTo(p.x, p.y);
-          ctx.lineTo(p.x - p.vx * (p.len / 7), p.y - p.vy * (p.len / 7));
-          ctx.strokeStyle = g;
-          ctx.lineWidth = 2.5 * p.life;
-          ctx.stroke();
-          p.x += p.vx; p.y += p.vy;
-          p.vy += 0.1;
-          p.life -= 0.04;
-        }
-      });
+      // Center pin
+      ctx.beginPath();
+      ctx.arc(cx, cy, 2, 0, Math.PI * 2);
+      ctx.fillStyle = C.gold;
+      ctx.fill();
 
       frameRef.current = requestAnimationFrame(draw);
     };
 
     frameRef.current = requestAnimationFrame(draw);
-    return () => {
-      cancelAnimationFrame(frameRef.current);
-      window.removeEventListener("resize", resize);
-    };
-  }, [steamRef]);
+    return () => cancelAnimationFrame(frameRef.current);
+  }, [loading]);
+
+  return <canvas ref={canvasRef} style={{ width:48, height:48 }}/>;
+}
+
+/* ══════════════════════════════════════════════════════════
+   TICKER NUMBER — counts up from 0 to value on mount
+   Uses spring physics. Feels weighted and real.
+══════════════════════════════════════════════════════════ */
+function TickerNumber({ value, style={} }) {
+  const mv = useMotionValue(0);
+  const spring = useSpring(mv, { stiffness:80, damping:18, mass:1.6 });
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => { mv.set(value); }, [value, mv]);
+  useEffect(() => {
+    const unsub = spring.on("change", v => setDisplay(Math.round(v)));
+    return unsub;
+  }, [spring]);
+
+  return <span style={style}>{display}</span>;
+}
+
+/* ══════════════════════════════════════════════════════════
+   LIVE TIMESTAMP — ticks up in real time
+   "0s ago" → "1s ago" → "2s ago"...
+   Shows the terminal is live.
+══════════════════════════════════════════════════════════ */
+function LiveTimestamp({ createdAt }) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const iv = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - createdAt) / 1000));
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [createdAt]);
+
+  const fmt = s => {
+    if (s < 60) return `${s}s ago`;
+    if (s < 3600) return `${Math.floor(s/60)}m ago`;
+    return `${Math.floor(s/3600)}h ago`;
+  };
 
   return (
-    <canvas ref={canvasRef}
-      style={{ position:"fixed", inset:0, pointerEvents:"none", zIndex:0, opacity:0.9 }}/>
+    <span style={{ fontFamily:C.mono, fontSize:9, color:C.steel,
+      letterSpacing:"0.08em" }}>{fmt(elapsed)}</span>
   );
 }
 
 /* ══════════════════════════════════════════════════════════
-   PRESSURE GAUGE LOGO — signature element #2
-   
-   An SVG arc gauge (180°) wraps the P logo.
-   Needle starts at ~40% pressure.
-   On messageCount change: needle springs to a new
-   reading. Communicates: the system is under pressure,
-   processing your query.
+   SIGNAL BAR — horizontal data stream indicator
+   Fills and empties continuously. Speeds up on load.
 ══════════════════════════════════════════════════════════ */
-function PressureGauge({ pressure = 40 }) {
-  // pressure: 0-100
-  const R = 22, cx = 27, cy = 27;
-  const circ = Math.PI * R; // half circle
-  const dashOffset = circ * (1 - pressure / 100);
-  const needleAngle = (pressure / 100) * 180 - 90; // -90 to +90 deg
-  const needleRad = (needleAngle * Math.PI) / 180;
-  const nx = cx + (R - 4) * Math.sin(needleRad);
-  const ny = cy - (R - 4) * Math.cos(needleRad);
+function SignalBar({ active }) {
+  const [fill, setFill] = useState(0);
+  const dirRef = useRef(1);
+
+  useEffect(() => {
+    const speed = active ? 4 : 0.8;
+    const iv = setInterval(() => {
+      setFill(f => {
+        const next = f + dirRef.current * speed;
+        if (next >= 100) { dirRef.current = -1; return 100; }
+        if (next <= 0) { dirRef.current = 1; return 0; }
+        return next;
+      });
+    }, 30);
+    return () => clearInterval(iv);
+  }, [active]);
 
   return (
-    <div style={{ position:"relative", width:54, height:54, flexShrink:0 }}>
-      {/* Logo orb */}
-      <div style={{ position:"absolute", inset:7, borderRadius:"50%",
-        background:`radial-gradient(circle at 38% 32%, ${C.copperBright}45, ${C.copper}22, transparent 70%)`,
-        border:`1px solid ${C.copper}55`,
-        display:"flex", alignItems:"center", justifyContent:"center",
-        boxShadow:`0 0 20px ${C.copperGlow}, 0 0 48px ${C.copperTrace}, inset 0 1px 0 rgba(255,255,255,0.12)` }}>
-        <span style={{ fontSize:15, fontWeight:800, color:C.gold,
-          fontFamily:C.display, textShadow:`0 0 12px ${C.brass}` }}>P</span>
-      </div>
-
-      {/* Gauge arc */}
-      <svg width="54" height="54" viewBox="0 0 54 54"
-        style={{ position:"absolute", inset:0, overflow:"visible" }}>
-        {/* Track */}
-        <path d={`M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy}`}
-          fill="none" stroke={`${C.brass}25`} strokeWidth="2.5"
-          strokeLinecap="round"/>
-        {/* Fill */}
-        <motion.path
-          d={`M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy}`}
-          fill="none" stroke={C.copper} strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeDasharray={circ}
-          animate={{ strokeDashoffset: dashOffset }}
-          transition={{ type:"spring", stiffness:120, damping:18, mass:1.5 }}
-          style={{ filter:`drop-shadow(0 0 4px ${C.copper})` }}/>
-        {/* Needle */}
-        <motion.line
-          x1={cx} y1={cy}
-          animate={{ x2: nx, y2: ny }}
-          transition={{ type:"spring", stiffness:120, damping:18, mass:1.5 }}
-          stroke={C.copper} strokeWidth="1.5" strokeLinecap="round"
-          style={{ filter:`drop-shadow(0 0 3px ${C.copper})` }}/>
-        {/* Center pin */}
-        <circle cx={cx} cy={cy} r="2.5" fill={C.brass}
-          style={{ filter:`drop-shadow(0 0 4px ${C.brass})` }}/>
-        {/* Tick marks */}
-        {[0, 25, 50, 75, 100].map(v => {
-          const a = ((v / 100) * 180 - 90) * Math.PI / 180;
-          const x1 = cx + (R + 2) * Math.sin(a);
-          const y1 = cy - (R + 2) * Math.cos(a);
-          const x2 = cx + (R + 5) * Math.sin(a);
-          const y2 = cy - (R + 5) * Math.cos(a);
-          return <line key={v} x1={x1} y1={y1} x2={x2} y2={y2}
-            stroke={`${C.brass}50`} strokeWidth="1"/>;
-        })}
-      </svg>
+    <div style={{ width:80, height:2, background:C.border, borderRadius:1, overflow:"hidden" }}>
+      <motion.div
+        animate={{ width:`${fill}%` }}
+        transition={{ duration:0.03 }}
+        style={{ height:"100%", background:active ? C.gold : C.steel,
+          borderRadius:1, opacity:active ? 1 : 0.5 }}/>
     </div>
   );
 }
 
-/* ── Warm star field particles — just a few, copper-toned ── */
-function StarField() {
-  const canvasRef = useRef(null);
-  const starsRef = useRef([]);
-  const frameRef = useRef(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
-    resize();
-    window.addEventListener("resize", resize);
-
-    starsRef.current = Array.from({ length: 180 }, () => ({
-      x: Math.random() * window.innerWidth,
-      y: Math.random() * window.innerHeight,
-      r: Math.random() * 1.5 + 0.2,
-      phase: Math.random() * Math.PI * 2,
-      speed: Math.random() * 0.006 + 0.002,
-      drift: (Math.random() - 0.5) * 0.04,
-      warm: Math.random() > 0.5,
-    }));
-
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      starsRef.current.forEach(s => {
-        s.phase += s.speed;
-        s.x += s.drift;
-        if (s.x > canvas.width) s.x = 0;
-        if (s.x < 0) s.x = canvas.width;
-        const t = 0.2 + 0.8 * (0.5 + 0.5 * Math.sin(s.phase));
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-        ctx.fillStyle = s.warm
-          ? `rgba(255,200,150,${t * 0.7})`
-          : `rgba(245,222,179,${t * 0.65})`;
-        ctx.fill();
-        if (s.r > 1.2) {
-          ctx.beginPath();
-          ctx.arc(s.x, s.y, s.r * 3, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(184,134,11,${t * 0.06})`;
-          ctx.fill();
-        }
-      });
-      frameRef.current = requestAnimationFrame(draw);
-    };
-    frameRef.current = requestAnimationFrame(draw);
-    return () => { cancelAnimationFrame(frameRef.current); window.removeEventListener("resize", resize); };
-  }, []);
-
-  return <canvas ref={canvasRef}
-    style={{ position:"fixed", inset:0, pointerEvents:"none", zIndex:0, opacity:0.8 }}/>;
-}
-
-/* ── Nebula orbs — copper/brass toned ── */
-function NebulaOrb({ size, top, left, color, duration, delay, opacity=0.45 }) {
+/* ══════════════════════════════════════════════════════════
+   PANEL SCAN — gold line sweeps input on send
+   Left to right over 300ms. Precise. Mechanical.
+══════════════════════════════════════════════════════════ */
+function PanelScan({ scanning }) {
   return (
-    <motion.div
-      animate={{ x:[0,16,-9,7,0], y:[0,-20,-7,-14,0] }}
-      transition={{ duration, delay, repeat:Infinity, ease:"easeInOut" }}
-      style={{ position:"absolute", width:size, height:size, borderRadius:"50%",
-        background:`radial-gradient(circle at 38% 38%, ${color}45, ${color}14 55%, transparent 75%)`,
-        top, left, pointerEvents:"none",
-        filter:`blur(${size/5}px)`, opacity }}/>
+    <AnimatePresence>
+      {scanning && (
+        <motion.div
+          initial={{ scaleX:0, opacity:1 }}
+          animate={{ scaleX:1, opacity:0 }}
+          exit={{ opacity:0 }}
+          transition={{ duration:0.32, ease:[0.4, 0, 0.6, 1] }}
+          style={{ position:"absolute", bottom:0, left:0, right:0, height:1,
+            background:C.gold, originX:0, transformBox:"fill-box",
+            pointerEvents:"none", zIndex:10 }}/>
+      )}
+    </AnimatePresence>
   );
 }
 
-/* ── Message renderer ── */
-function renderMsg(text) {
-  return text.split('\n').map((line, i) => {
-    const stripped = line.replace(/^#{1,3}\s/, '');
-    if (/^#{1,3}\s/.test(line)) return (
-      <p key={i} style={{ fontFamily:C.display, fontWeight:700, color:C.copper,
-        margin:"14px 0 6px", fontSize:"0.88rem", letterSpacing:"0.04em" }}>{stripped}</p>
-    );
-    if (line.startsWith('**') && line.endsWith('**') && line.length > 4) return (
-      <p key={i} style={{ fontSize:"0.6rem", fontWeight:700, color:C.gold,
-        margin:"12px 0 5px", letterSpacing:"0.22em", textTransform:"uppercase",
-        fontFamily:C.mono }}>{line.slice(2,-2)}</p>
-    );
-    if (line.startsWith('- ') || line.startsWith('* ')) {
-      const pts = line.slice(2).split(/\*\*(.*?)\*\*/g);
-      return (
-        <div key={i} style={{ display:"flex", gap:10, margin:"5px 0" }}>
-          <span style={{ color:C.copper, flexShrink:0, fontSize:"0.5rem", marginTop:6,
-            filter:`drop-shadow(0 0 4px ${C.copper})` }}>◆</span>
-          <span style={{ fontSize:"0.8rem", color:C.wheatOff, lineHeight:1.78, fontFamily:C.mono }}>
-            {pts.map((p,j) => j%2===1
-              ? <strong key={j} style={{ color:C.gold, fontWeight:600 }}>{p}</strong> : p)}
-          </span>
-        </div>
-      );
-    }
-    if (!line.trim()) return <div key={i} style={{ height:7 }}/>;
-    if (line.match(/^---+$/)) return (
-      <div key={i} style={{ height:1,
-        background:`linear-gradient(90deg, ${C.copper}40, ${C.brass}30, transparent)`,
-        margin:"10px 0" }}/>
-    );
-    const pts = line.split(/\*\*(.*?)\*\*/g);
-    return (
-      <p key={i} style={{ margin:"4px 0", lineHeight:1.82, fontSize:"0.8rem",
-        color:C.wheatMid, fontFamily:C.mono }}>
-        {pts.map((p,j) => j%2===1
-          ? <strong key={j} style={{ color:C.wheatOff, fontWeight:600 }}>{p}</strong> : p)}
-      </p>
-    );
-  });
+/* ── Typewriter ── */
+function Typewriter({ text, onComplete, searchTerm="" }) {
+  const [displayed, setDisplayed] = useState("");
+  const [done, setDone] = useState(false);
+  const [cursorOn, setCursorOn] = useState(true);
+  const indexRef = useRef(0);
+
+  useEffect(() => {
+    indexRef.current = 0; setDisplayed(""); setDone(false);
+    const iv = setInterval(() => {
+      if (indexRef.current < text.length) {
+        const c = Math.floor(Math.random()*3)+1;
+        indexRef.current = Math.min(indexRef.current+c, text.length);
+        setDisplayed(text.slice(0, indexRef.current));
+      } else { clearInterval(iv); setDone(true); onComplete&&onComplete(); }
+    }, 12);
+    return () => clearInterval(iv);
+  }, [text, onComplete]);
+
+  useEffect(() => {
+    if (done) return;
+    const b = setInterval(() => setCursorOn(v=>!v), 530);
+    return () => clearInterval(b);
+  }, [done]);
+
+  return (
+    <span style={{ fontFamily:C.body, fontSize:"0.82rem", color:C.inkMid, lineHeight:1.8 }}>
+      <HighlightedText text={displayed} searchTerm={searchTerm}/>
+      {!done && <span style={{ display:"inline-block", width:2, height:"1em",
+        background:C.gold, marginLeft:1, verticalAlign:"text-bottom",
+        opacity:cursorOn?1:0 }}/>}
+    </span>
+  );
 }
 
-/* ══════════════════════════════════════════════════════════
-   MESSAGE BUBBLE — meteor entrance + continuous float
-══════════════════════════════════════════════════════════ */
-function MessageBubble({ msg, index }) {
-  const isUser = msg.role === "user";
-  const floatDelay = (index * 0.35) % 3.5;
+/* ── Highlight ── */
+function HighlightedText({ text, searchTerm, style={} }) {
+  if (!searchTerm||!text) return <span style={style}>{text}</span>;
+  const parts = text.split(new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")})`, "gi"));
   return (
-    <motion.div
-      initial={{ opacity:0, y:-28, scale:0.93 }}
-      animate={{ opacity:1, y:0, scale:1 }}
-      transition={SP.gravity}
-      style={{ display:"flex", justifyContent:isUser?"flex-end":"flex-start",
-        gap:12, alignItems:"flex-end" }}>
-      {!isUser && (
-        <motion.div
-          initial={{ opacity:0, scale:0.7 }} animate={{ opacity:1, scale:1 }}
-          transition={{ ...SP.gravity, delay:0.12 }}
-          style={{ width:28, height:28, borderRadius:"50%", flexShrink:0,
-            background:`radial-gradient(circle at 38% 32%, ${C.copperBright}48, ${C.copper}20)`,
-            border:`1px solid ${C.copper}50`,
-            display:"flex", alignItems:"center", justifyContent:"center",
-            fontSize:10, color:C.gold, fontFamily:C.display, fontWeight:800,
-            boxShadow:`0 0 14px ${C.copperGlow}`, marginBottom:2 }}>P</motion.div>
-      )}
-      {/* Continuous float after arrival */}
-      <motion.div
-        animate={{
-          y:[0, isUser?-2.5:-3, 0, isUser?-1.5:-2, 0],
-          x:[0, isUser?1.5:-1.5, 0.5, isUser?1:-1, 0],
-        }}
-        transition={{ duration:isUser?6:7, delay:floatDelay,
-          repeat:Infinity, ease:"easeInOut" }}>
-        <div style={{
-          maxWidth:"72%", padding:"14px 18px",
-          borderRadius:isUser?"16px 16px 4px 16px":"16px 16px 16px 4px",
-          backdropFilter:"blur(20px)",
-          ...(isUser?{
-            background:`linear-gradient(135deg, ${C.copper}22, ${C.surface}88)`,
-            border:`1px solid ${C.borderMid}`,
-            boxShadow:`0 10px 36px rgba(255,107,53,0.15), inset 0 1px 0 ${C.wheatTrace}`,
-          }:{
-            background:C.glass,
-            border:`1px solid ${C.border}`,
-            borderLeft:`2px solid ${C.copper}`,
-            boxShadow:`0 10px 36px rgba(0,0,0,0.45), -6px 0 22px ${C.copperFaint},
-              inset 0 1px 0 ${C.wheatTrace}`,
-            position:"relative", overflow:"hidden",
-          })
-        }}>
-          {!isUser&&(
-            <div style={{ position:"absolute", top:0, left:0, right:0, height:1,
-              background:`linear-gradient(90deg, ${C.copper}55, ${C.brass}30, transparent)` }}/>
-          )}
-          {isUser
-            ?<p style={{ fontSize:"0.82rem", color:C.wheat, margin:0,
-                lineHeight:1.72, fontFamily:C.mono }}>{msg.content}</p>
-            :<div>{renderMsg(msg.content)}</div>
-          }
-        </div>
-      </motion.div>
-    </motion.div>
+    <span style={style}>
+      {parts.map((p,i) => p.toLowerCase()===searchTerm.toLowerCase()
+        ? <mark key={i} style={{ background:"rgba(200,169,110,0.22)", color:C.gold,
+            borderRadius:2, padding:"0 1px" }}>{p}</mark>
+        : p)}
+    </span>
+  );
+}
+
+/* ── Copy button ── */
+function CopyBtn({ text }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <motion.button initial={{ opacity:0 }} whileHover={{ opacity:1 }}
+      whileTap={{ scale:0.95, transition:SP.press }}
+      onClick={e=>{ e.stopPropagation(); navigator.clipboard.writeText(text);
+        setCopied(true); setTimeout(()=>setCopied(false), 2000); }}
+      style={{ position:"absolute", top:8, right:8, background:"transparent",
+        border:`1px solid ${copied?C.goldDim:C.border}`, borderRadius:4,
+        padding:"3px 8px", cursor:"pointer", display:"flex", alignItems:"center", gap:4,
+        fontFamily:C.mono, fontSize:9, color:copied?C.gold:C.inkDim,
+        letterSpacing:"0.08em", transition:"all 150ms" }}>
+      {copied ? "✓ Copied" : "Copy"}
+    </motion.button>
   );
 }
 
 /* ── Wave dots ── */
 function WaveDots() {
   return (
-    <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+    <div style={{ display:"flex", gap:5, alignItems:"center" }}>
       {[0,1,2].map(i=>(
         <motion.div key={i}
-          animate={{ y:[0,-6,0], opacity:[0.4,1,0.4] }}
-          transition={{ duration:1.5, delay:i*0.22, repeat:Infinity, ease:"easeInOut" }}
-          style={{ width:5, height:5, borderRadius:"50%", background:C.copper,
-            boxShadow:`0 0 8px ${C.copper}` }}/>
+          animate={{ scaleY:[1,1.8,1], opacity:[0.5,1,0.5] }}
+          transition={{ duration:0.9, delay:i*0.15, repeat:Infinity, ease:"easeInOut" }}
+          style={{ width:2, height:12, background:C.gold, borderRadius:1 }}/>
       ))}
     </div>
   );
+}
+
+/* ── Message renderer ── */
+function renderMsg(text, searchTerm="") {
+  return text.split('\n').map((line,i) => {
+    if (/^#{1,3}\s/.test(line)) return (
+      <p key={i} style={{ fontFamily:C.display, fontWeight:700, color:C.gold,
+        margin:"14px 0 5px", fontSize:"0.88rem", letterSpacing:"0.04em" }}>
+        <HighlightedText text={line.replace(/^#{1,3}\s/,"")} searchTerm={searchTerm}/>
+      </p>
+    );
+    if (line.startsWith('- ')||line.startsWith('* ')) {
+      const pts = line.slice(2).split(/\*\*(.*?)\*\*/g);
+      return (
+        <div key={i} style={{ display:"flex", gap:10, margin:"4px 0" }}>
+          <span style={{ color:C.gold, flexShrink:0, fontSize:10, marginTop:4, opacity:0.7 }}>▸</span>
+          <span style={{ fontSize:"0.8rem", color:C.inkOff, lineHeight:1.75, fontFamily:C.body }}>
+            {pts.map((p,j) => j%2===1
+              ? <strong key={j} style={{ color:C.ink, fontWeight:600 }}>{p}</strong>
+              : <HighlightedText key={j} text={p} searchTerm={searchTerm}/>)}
+          </span>
+        </div>
+      );
+    }
+    if (!line.trim()) return <div key={i} style={{ height:6 }}/>;
+    if (line.match(/^---+$/)) return (
+      <div key={i} style={{ height:1, background:C.border, margin:"8px 0" }}/>
+    );
+    const pts = line.split(/\*\*(.*?)\*\*/g);
+    return (
+      <p key={i} style={{ margin:"3px 0", lineHeight:1.8, fontSize:"0.8rem",
+        color:C.inkMid, fontFamily:C.body }}>
+        {pts.map((p,j) => j%2===1
+          ? <strong key={j} style={{ color:C.inkOff, fontWeight:600 }}>{p}</strong>
+          : <HighlightedText key={j} text={p} searchTerm={searchTerm}/>)}
+      </p>
+    );
+  });
 }
 
 const SUGGESTIONS = [
@@ -525,222 +399,266 @@ const SUGGESTIONS = [
   "What are the working hours?",
 ];
 
-const TOPICS = [
-  "Leave & Absence","Remote Work","Grievances",
-  "Performance","Benefits","Disciplinary","Data Privacy"
-];
+const TOPICS = ["Leave & Absence","Remote Work","Grievances",
+  "Performance","Benefits","Disciplinary","Data Privacy"];
 
 export default function PolicyPal() {
-  const [docText, setDocText]     = useState("");
-  const [docName, setDocName]     = useState("");
-  const [docBase64, setDocBase64] = useState("");
-  const [docIsPdf, setDocIsPdf]   = useState(false);
-  const [messages, setMessages]   = useState([]);
-  const [input, setInput]         = useState("");
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState("");
-  const [dragOver, setDragOver]   = useState(false);
-  const [focused, setFocused]     = useState(false);
-  const [pressure, setPressure]   = useState(38);
+  const [docText, setDocText]       = useState("");
+  const [docName, setDocName]       = useState("");
+  const [docBase64, setDocBase64]   = useState("");
+  const [docIsPdf, setDocIsPdf]     = useState(false);
+  const [docSummary, setDocSummary] = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [messages, setMessages]     = useState([]);
+  const [msgTimes, setMsgTimes]     = useState([]);
+  const [input, setInput]           = useState("");
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState("");
+  const [dragOver, setDragOver]     = useState(false);
+  const [focused, setFocused]       = useState(false);
+  const [scanning, setScanning]     = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [typingDone, setTypingDone] = useState({});
+  const [followUps, setFollowUps]   = useState({});
+  const [docLoaded, setDocLoaded]   = useState(false);
+
   const chatEndRef   = useRef(null);
   const fileInputRef = useRef(null);
   const textareaRef  = useRef(null);
-  const steamRef     = useRef(null);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior:"smooth" });
   }, [messages, loading]);
 
+  async function generateSummary(text, isPdf, base64) {
+    setSummaryLoading(true);
+    try {
+      let body;
+      if (isPdf) {
+        body = JSON.stringify({ model:"claude-sonnet-4-5", max_tokens:400,
+          system:"Return ONLY JSON: {summary: string (2 sentences max), topics: string[] (4-5 items)}. No markdown.",
+          messages:[{ role:"user", content:[
+            { type:"document", source:{ type:"base64", media_type:"application/pdf", data:base64 }},
+            { type:"text", text:"Summarise. JSON only." }
+          ]}]});
+      } else {
+        body = JSON.stringify({ model:"claude-sonnet-4-5", max_tokens:400,
+          system:"Return ONLY JSON: {summary: string (2 sentences max), topics: string[] (4-5 items)}. No markdown.",
+          messages:[{ role:"user", content:`Summarise.\n\n${text.slice(0,4000)}` }]});
+      }
+      const res = await fetch("/api/v1/messages", { method:"POST",
+        headers:{ "Content-Type":"application/json", "x-api-key":process.env.REACT_APP_API_KEY,
+          "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access":"true",
+          "anthropic-beta":"pdfs-2024-09-25" }, body });
+      const data = await res.json();
+      const raw = data.content?.map(i=>i.text||"").join("")||"";
+      const match = raw.replace(/```json\s*/g,"").replace(/```\s*/g,"").trim().match(/\{[\s\S]*\}/);
+      if (match) { try { setDocSummary(JSON.parse(match[0])); } catch {} }
+    } catch {}
+    setSummaryLoading(false);
+  }
+
   async function handleFile(file) {
     if (!file) return;
-    setDocName(file.name); setMessages([]);
+    setDocName(file.name); setMessages([]); setMsgTimes([]);
+    setDocSummary(null); setTypingDone({}); setFollowUps({});
     if (file.type==="application/pdf") {
-      const r=new FileReader();
-      r.onload=e=>{setDocBase64(e.target.result.split(",")[1]);setDocIsPdf(true);setDocText("__pdf__");};
+      const r = new FileReader();
+      r.onload = e => {
+        const b = e.target.result.split(",")[1];
+        setDocBase64(b); setDocIsPdf(true); setDocText("__pdf__");
+        setDocLoaded(true);
+        generateSummary("", true, b);
+      };
       r.readAsDataURL(file);
     } else {
-      const r=new FileReader();
-      r.onload=e=>{setDocText(e.target.result);setDocBase64("");setDocIsPdf(false);};
+      const r = new FileReader();
+      r.onload = e => {
+        const t = e.target.result;
+        setDocText(t); setDocBase64(""); setDocIsPdf(false);
+        setDocLoaded(true);
+        generateSummary(t, false, "");
+      };
       r.readAsText(file);
     }
   }
 
+  async function generateFollowUps(answer, msgIndex) {
+    try {
+      const res = await fetch("/api/v1/messages", { method:"POST",
+        headers:{ "Content-Type":"application/json", "x-api-key":process.env.REACT_APP_API_KEY,
+          "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access":"true" },
+        body: JSON.stringify({ model:"claude-sonnet-4-5", max_tokens:200,
+          system:"Return ONLY a JSON array of 3 short follow-up questions (max 8 words). No markdown.",
+          messages:[{ role:"user", content:`Suggest 3 follow-ups:\n\n${answer.slice(0,500)}` }] }) });
+      const data = await res.json();
+      const raw = data.content?.map(i=>i.text||"").join("")||"";
+      const match = raw.replace(/```json\s*/g,"").replace(/```\s*/g,"").trim().match(/\[[\s\S]*\]/);
+      if (match) { try { setFollowUps(p=>({...p,[msgIndex]:JSON.parse(match[0])})); } catch {} }
+    } catch {}
+  }
+
   async function sendMessage(text) {
-    const q=(text||input).trim();
+    const q = (text||input).trim();
     if (!q||!docText||loading) return;
     setInput("");
     if (textareaRef.current) textareaRef.current.style.height="auto";
 
-    // Steam vent + pressure spike
-    if (steamRef.current && textareaRef.current) {
-      const rect=textareaRef.current.getBoundingClientRect();
-      steamRef.current(rect.left+rect.width/2, rect.top);
-    }
-    setPressure(60+Math.random()*35);
-    setTimeout(()=>setPressure(30+Math.random()*25), 2500);
+    // Panel scan
+    setScanning(true);
+    await new Promise(r => setTimeout(r, 320));
+    setScanning(false);
 
-    const newMessages=[...messages,{role:"user",content:q}];
-    setMessages(newMessages);
+    const now = Date.now();
+    const newMessages = [...messages, { role:"user", content:q }];
+    const newTimes = [...msgTimes, now];
+    setMessages(newMessages); setMsgTimes(newTimes);
     setLoading(true); setError("");
 
     try {
       let body;
       if (docIsPdf) {
-        const userMessages=newMessages.map((m,i)=>{
-          if(i===0) return{role:"user",content:[
-            {type:"document",source:{type:"base64",media_type:"application/pdf",data:docBase64}},
-            {type:"text",text:m.content}
+        const um = newMessages.map((m,i) => {
+          if (i===0) return { role:"user", content:[
+            { type:"document", source:{ type:"base64", media_type:"application/pdf", data:docBase64 }},
+            { type:"text", text:m.content }
           ]};
-          return{role:m.role,content:m.content};
+          return { role:m.role, content:m.content };
         });
-        body=JSON.stringify({model:"claude-sonnet-4-5",max_tokens:1000,
-          system:"You are PolicyPal, a precise HR policy assistant. Answer questions based strictly on the uploaded policy document. Be clear and direct.",
-          messages:userMessages});
+        body = JSON.stringify({ model:"claude-sonnet-4-5", max_tokens:1000,
+          system:"You are PolicyPal, a precise HR policy assistant. Answer based strictly on the uploaded document. Be clear and direct.",
+          messages:um });
       } else {
-        body=JSON.stringify({model:"claude-sonnet-4-5",max_tokens:1000,
-          system:`You are PolicyPal, a precise HR policy assistant. Answer based strictly on the policy document below.\n\nPOLICY DOCUMENT:\n${docText}`,
-          messages:newMessages.map(m=>({role:m.role,content:m.content}))});
+        body = JSON.stringify({ model:"claude-sonnet-4-5", max_tokens:1000,
+          system:`You are PolicyPal, a precise HR policy assistant.\n\nPOLICY DOCUMENT:\n${docText}`,
+          messages:newMessages.map(m=>({ role:m.role, content:m.content })) });
       }
-      const res=await fetch("/api/v1/messages",{
-        method:"POST",
-        headers:{"Content-Type":"application/json",
-          "x-api-key":process.env.REACT_APP_API_KEY,
-          "anthropic-version":"2023-06-01",
-          "anthropic-dangerous-direct-browser-access":"true",
-          "anthropic-beta":"pdfs-2024-09-25"},
-        body,
-      });
-      if(!res.ok){setError(`Error ${res.status}`);setLoading(false);return;}
-      const data=await res.json();
-      const reply=data.content?.map(i=>i.text||"").join("")||"";
-      setMessages(prev=>[...prev,{role:"assistant",content:reply}]);
-      setPressure(20+Math.random()*20);
-    } catch(e){setError(e.message);}
+      const res = await fetch("/api/v1/messages", { method:"POST",
+        headers:{ "Content-Type":"application/json", "x-api-key":process.env.REACT_APP_API_KEY,
+          "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access":"true",
+          "anthropic-beta":"pdfs-2024-09-25" }, body });
+      if (!res.ok) { setError(`Error ${res.status}`); setLoading(false); return; }
+      const data = await res.json();
+      const reply = data.content?.map(i=>i.text||"").join("")||"";
+      setMessages(prev => [...prev, { role:"assistant", content:reply }]);
+      setMsgTimes(prev => [...prev, Date.now()]);
+    } catch(e) { setError(e.message); }
     setLoading(false);
   }
 
-  const listV={hidden:{},show:{transition:{staggerChildren:0.06,delayChildren:0.1}}};
-  const dropItem={hidden:{opacity:0,y:-14,scale:0.93},show:{opacity:1,y:0,scale:1,transition:SP.gravity}};
-  const slideItem={hidden:{opacity:0,x:-10},show:{opacity:1,x:0,transition:SP.gravity}};
+  const onTypingComplete = useCallback((idx, content) => {
+    setTypingDone(p=>({...p,[idx]:true}));
+    generateFollowUps(content, idx);
+  }, []);
+
+  const queryCount = messages.filter(m=>m.role==="user").length;
+
+  const listV = { hidden:{}, show:{ transition:{ staggerChildren:0.04, delayChildren:0.06 } } };
+  const itemV = { hidden:{ opacity:0, y:-8 }, show:{ opacity:1, y:0, transition:SP.smooth } };
 
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap');
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
         html,body{height:100%;overflow:hidden;}
-        html{-webkit-font-smoothing:antialiased;}
+        html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
         body{background:${C.void};}
-        ::selection{background:${C.copperTrace};color:${C.copper};}
-        ::placeholder{color:${C.wheatFaint};font-family:'JetBrains Mono',monospace;font-size:0.8rem;}
+        ::selection{background:rgba(200,169,110,0.20);color:${C.gold};}
+        ::placeholder{color:${C.inkFaint};font-family:'JetBrains Mono',monospace;font-size:0.78rem;}
         ::-webkit-scrollbar{width:2px;}
-        ::-webkit-scrollbar-thumb{background:${C.brassTrace};border-radius:2px;}
-        input,textarea{color:${C.wheat};}
-        .chip:hover{background:${C.copperTrace} !important;border-color:${C.borderMid} !important;color:${C.copper} !important;}
+        ::-webkit-scrollbar-thumb{background:${C.raised};}
+        input,textarea{color:${C.ink};}
         @media(prefers-reduced-motion:reduce){
           *{animation-duration:0.01ms!important;transition-duration:0.01ms!important;}
           canvas{display:none;}
         }
       `}</style>
 
-      {/* GEAR CANVAS + STEAM */}
-      <GearCanvas steamRef={steamRef}/>
+      <div style={{ display:"flex", height:"100vh", fontFamily:C.body,
+        overflow:"hidden", background:C.void, position:"relative", zIndex:1 }}>
 
-      {/* WARM STAR FIELD */}
-      <StarField/>
-
-      {/* NEBULA ORBS — copper/brass tones */}
-      <div style={{ position:"fixed", inset:0, pointerEvents:"none", zIndex:0, overflow:"hidden" }}>
-        <NebulaOrb size={480} top="-15%" left="55%"  color={C.copper} duration={18} delay={0}   opacity={0.35}/>
-        <NebulaOrb size={380} top="60%"  left="-8%"  color={C.brass}  duration={22} delay={2.5} opacity={0.28}/>
-        <NebulaOrb size={300} top="20%"  left="70%"  color={C.brass}  duration={15} delay={1.2} opacity={0.30}/>
-        <NebulaOrb size={250} top="72%"  left="42%"  color={C.copper} duration={25} delay={4}   opacity={0.18}/>
-        <NebulaOrb size={200} top="5%"   left="10%"  color={C.gold}   duration={19} delay={0.6} opacity={0.14}/>
-        <NebulaOrb size={160} top="40%"  left="30%"  color={C.brass}  duration={16} delay={3.2} opacity={0.16}/>
-      </div>
-
-      <div style={{ display:"flex", height:"100vh", fontFamily:C.mono,
-        overflow:"hidden", position:"relative", zIndex:1 }}>
-
-        {/* ══ SIDEBAR ══ */}
+        {/* ══ SIDEBAR — morphs on doc load ══ */}
         <motion.div
-          initial={{ opacity:0, x:-24 }} animate={{ opacity:1, x:0 }}
-          transition={{ ...SP.gravity, delay:0.05 }}
-          style={{ width:292, flexShrink:0,
-            background:`linear-gradient(170deg, ${C.furnace}F2 0%, ${C.surface}E5 55%, ${C.void}F8 100%)`,
-            borderRight:`1px solid ${C.border}`, backdropFilter:"blur(32px)",
-            display:"flex", flexDirection:"column", position:"relative", overflow:"hidden" }}>
+          animate={{ width: docLoaded ? 320 : 280 }}
+          transition={SP.smooth}
+          style={{ flexShrink:0, background:C.surface,
+            borderRight:`1px solid ${C.border}`, display:"flex",
+            flexDirection:"column", overflow:"hidden" }}>
 
-          {/* Top copper glow line */}
-          <div style={{ position:"absolute", top:0, left:0, right:0, height:1,
-            background:`linear-gradient(90deg, transparent, ${C.copper}70, ${C.brass}45, transparent)`,
-            boxShadow:`0 0 20px ${C.copper}` }}/>
-          <div style={{ position:"absolute", top:0, right:0, width:1, height:"100%",
-            background:`linear-gradient(180deg, ${C.copper}18, transparent 35%, ${C.brass}12 75%, transparent)`,
-            pointerEvents:"none" }}/>
+          {/* Gold top stripe */}
+          <div style={{ height:2, background:`linear-gradient(90deg, ${C.gold}, rgba(200,169,110,0.3), transparent)` }}/>
 
-          {/* Brand */}
+          {/* Brand header */}
           <motion.div
-            initial={{ opacity:0, y:-12 }} animate={{ opacity:1, y:0 }}
-            transition={{ ...SP.gravity, delay:0.12 }}
-            style={{ padding:"28px 24px 22px", borderBottom:`1px solid ${C.border}`,
-              position:"relative", zIndex:1 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:22 }}>
-              <PressureGauge pressure={pressure}/>
-              <div>
-                <div style={{ fontSize:17, fontWeight:800, color:C.wheat, fontFamily:C.display,
-                  lineHeight:1, letterSpacing:"0.02em" }}>PolicyPal</div>
-                <div style={{ fontSize:8, color:C.wheatDim, letterSpacing:"0.18em",
-                  textTransform:"uppercase", fontFamily:C.mono, marginTop:4 }}>
-                  by Divyah · Brass Observatory
-                </div>
+            initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }}
+            transition={{ ...SP.smooth, delay:0.05 }}
+            style={{ padding:"20px 22px 18px", borderBottom:`1px solid ${C.border}`,
+              display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+            <div>
+              <div style={{ fontSize:16, fontWeight:800, color:C.ink, fontFamily:C.display,
+                letterSpacing:"0.04em", lineHeight:1 }}>PolicyPal</div>
+              <div style={{ fontSize:8, color:C.steel, letterSpacing:"0.18em",
+                textTransform:"uppercase", fontFamily:C.mono, marginTop:4 }}>
+                Platinum Terminal · by Divyah
               </div>
             </div>
-            <div style={{ height:1,
-              background:`linear-gradient(90deg, ${C.copper}45, ${C.brass}28, transparent)`,
-              marginBottom:18 }}/>
-            <p style={{ fontFamily:C.display, fontWeight:700, fontSize:"1.15rem",
-              color:C.wheatOff, lineHeight:1.35, margin:"0 0 6px" }}>
-              Stop reading policies.
-            </p>
-            <p style={{ fontFamily:C.display, fontWeight:800, fontSize:"1.15rem",
-              color:C.copper, lineHeight:1.35, margin:"0 0 14px",
-              textShadow:`0 0 20px ${C.copper}` }}>
-              Start asking them.
-            </p>
-            <p style={{ fontFamily:C.mono, fontSize:"0.68rem", color:C.wheatDim, lineHeight:1.9 }}>
-              Your HR team can't answer at 11pm.<br/>
-              <span style={{ color:C.gold }}>We can.</span>
-            </p>
+            {/* Sweep hand */}
+            <SweepHand loading={loading}/>
           </motion.div>
 
-          {/* Sidebar content */}
-          <div style={{ padding:"18px 24px", flex:1, display:"flex",
-            flexDirection:"column", overflow:"hidden", position:"relative", zIndex:1 }}>
+          {/* Stats strip — ticker numbers */}
+          <div style={{ padding:"12px 22px", borderBottom:`1px solid ${C.border}`,
+            display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
+            {[
+              { label:"Queries", value:queryCount },
+              { label:"Loaded", value:docLoaded?1:0 },
+              { label:"Uptime", value:Math.floor(Date.now()/1000%999) },
+            ].map(({ label, value }, i) => (
+              <div key={label}>
+                <div style={{ fontFamily:C.mono, fontSize:8, color:C.steel,
+                  letterSpacing:"0.12em", textTransform:"uppercase", marginBottom:3 }}>
+                  {label}
+                </div>
+                <TickerNumber value={value}
+                  style={{ fontFamily:C.mono, fontSize:18, fontWeight:600,
+                    color:C.ink, letterSpacing:"-0.5px", lineHeight:1 }}/>
+              </div>
+            ))}
+          </div>
+
+          {/* Branding text */}
+          <div style={{ padding:"16px 22px 14px", borderBottom:`1px solid ${C.border}` }}>
+            <p style={{ fontFamily:C.display, fontWeight:700, fontSize:"1rem",
+              color:C.inkOff, lineHeight:1.4, margin:"0 0 4px" }}>Stop reading policies.</p>
+            <p style={{ fontFamily:C.display, fontWeight:700, fontSize:"1rem",
+              color:C.gold, lineHeight:1.4, margin:"0 0 10px" }}>Start asking them.</p>
+            <SignalBar active={loading}/>
+          </div>
+
+          {/* Content area */}
+          <div style={{ flex:1, padding:"14px 22px", display:"flex",
+            flexDirection:"column", overflow:"hidden auto" }}>
             <AnimatePresence mode="wait">
               {!docText ? (
                 <motion.div key="topics"
                   initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
                   transition={{ duration:0.18 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
-                    <div style={{ height:1, flex:1, background:`linear-gradient(90deg, ${C.border}, transparent)` }}/>
-                    <span style={{ fontSize:8, letterSpacing:"0.2em", textTransform:"uppercase",
-                      color:C.wheatDim, fontFamily:C.mono }}>Sectors</span>
-                    <div style={{ height:1, flex:1, background:`linear-gradient(90deg, transparent, ${C.border})` }}/>
+                  <div style={{ fontFamily:C.mono, fontSize:8, color:C.steel,
+                    letterSpacing:"0.18em", textTransform:"uppercase", marginBottom:12 }}>
+                    Policy Sectors
                   </div>
                   <motion.div variants={listV} initial="hidden" animate="show">
-                    {TOPICS.map((t,i)=>(
-                      <motion.div key={i} variants={slideItem}
-                        animate={{ x:[0,i%2===0?2:-2,0] }}
-                        transition={{ ...SP.sway, duration:4+i*0.4, delay:i*0.28 }}
-                        style={{ display:"flex", alignItems:"center", gap:10,
-                          padding:"9px 0", borderBottom:`1px solid ${C.border}` }}>
-                        <motion.div
-                          animate={{ opacity:[0.5,1,0.5] }}
-                          transition={{ duration:2.5+i*0.3, repeat:Infinity, ease:"easeInOut", delay:i*0.4 }}
-                          style={{ width:3, height:3, borderRadius:"50%", background:C.copper,
-                            boxShadow:`0 0 5px ${C.copper}`, flexShrink:0 }}/>
-                        <span style={{ fontSize:"0.7rem", color:C.wheatDim, fontFamily:C.mono }}>{t}</span>
+                    {TOPICS.map((t,i) => (
+                      <motion.div key={i} variants={itemV}
+                        whileHover={{ x:3, transition:SP.tick }}
+                        style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 0",
+                          borderBottom:`1px solid ${C.border}`, cursor:"default" }}>
+                        <div style={{ width:4, height:4, borderRadius:1,
+                          background:C.steel, flexShrink:0, opacity:0.6 }}/>
+                        <span style={{ fontSize:"0.72rem", color:C.inkDim,
+                          fontFamily:C.body, transition:"color 150ms" }}>{t}</span>
                       </motion.div>
                     ))}
                   </motion.div>
@@ -748,64 +666,112 @@ export default function PolicyPal() {
               ) : (
                 <motion.div key="loaded"
                   initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-                  transition={{ duration:0.18 }}
-                  style={{ display:"flex", flexDirection:"column", height:"100%" }}>
-                  {/* Doc badge — pendulum sway */}
+                  transition={{ duration:0.2 }}
+                  style={{ display:"flex", flexDirection:"column" }}>
+
+                  {/* Doc card — slides in */}
                   <motion.div
-                    initial={{ opacity:0, y:-16, scale:0.93 }}
-                    animate={{ opacity:1, y:0, scale:1 }}
-                    transition={SP.gravity}
-                    style={{ marginBottom:12 }}>
-                    <motion.div
-                      animate={{ rotate:[-0.8,0.8,-0.8], y:[0,-1,0] }}
-                      transition={{ duration:5, repeat:Infinity, ease:"easeInOut" }}
-                      style={{ padding:"12px 14px", background:C.glass,
-                        border:`1px solid ${C.border}`, borderRadius:10,
-                        position:"relative", overflow:"hidden", backdropFilter:"blur(12px)" }}>
-                      <div style={{ position:"absolute", left:0, top:0, bottom:0, width:2,
-                        background:`linear-gradient(180deg,${C.copper},${C.brass})`,
-                        borderRadius:"10px 0 0 10px" }}/>
-                      <div style={{ fontSize:8, color:C.copper, letterSpacing:"0.14em",
-                        textTransform:"uppercase", fontFamily:C.mono, marginBottom:4 }}>
-                        Tube received
-                      </div>
-                      <div style={{ fontSize:"0.7rem", color:C.wheatOff, fontFamily:C.mono }}>
-                        {docName.slice(0,26)}{docName.length>26?"…":""}
-                      </div>
-                    </motion.div>
+                    initial={{ opacity:0, x:-12 }} animate={{ opacity:1, x:0 }}
+                    transition={SP.smooth}
+                    style={{ padding:"10px 14px", background:C.raised,
+                      border:`1px solid ${C.border}`, borderRadius:6,
+                      marginBottom:10, position:"relative", overflow:"hidden" }}>
+                    <div style={{ position:"absolute", left:0, top:0, bottom:0,
+                      width:2, background:C.gold }}/>
+                    <div style={{ fontFamily:C.mono, fontSize:8, color:C.gold,
+                      letterSpacing:"0.14em", textTransform:"uppercase", marginBottom:4 }}>
+                      Active Document
+                    </div>
+                    <div style={{ fontSize:"0.72rem", color:C.inkOff,
+                      fontFamily:C.mono, marginBottom:4 }}>
+                      {docName.slice(0,28)}{docName.length>28?"…":""}
+                    </div>
+                    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                      <div style={{ width:5, height:5, borderRadius:"50%",
+                        background:C.positive, flexShrink:0 }}/>
+                      <span style={{ fontFamily:C.mono, fontSize:8,
+                        color:C.positive, letterSpacing:"0.08em" }}>INDEXED</span>
+                    </div>
                   </motion.div>
 
+                  {/* Summary */}
+                  <AnimatePresence>
+                    {summaryLoading && (
+                      <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+                        style={{ marginBottom:10, padding:"10px 12px", background:C.raised,
+                          border:`1px solid ${C.border}`, borderRadius:6 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                          <motion.div animate={{ rotate:360 }}
+                            transition={{ duration:1, repeat:Infinity, ease:"linear" }}
+                            style={{ width:10, height:10, border:`1.5px solid ${C.border}`,
+                              borderTopColor:C.gold, borderRadius:"50%" }}/>
+                          <span style={{ fontFamily:C.mono, fontSize:9,
+                            color:C.gold, letterSpacing:"0.1em" }}>Analysing document…</span>
+                        </div>
+                      </motion.div>
+                    )}
+                    {docSummary && !summaryLoading && (
+                      <motion.div
+                        initial={{ opacity:0, x:-12 }} animate={{ opacity:1, x:0 }}
+                        exit={{ opacity:0 }} transition={SP.smooth}
+                        style={{ marginBottom:10, padding:"10px 14px", background:C.raised,
+                          border:`1px solid ${C.border}`, borderRadius:6 }}>
+                        <div style={{ fontFamily:C.mono, fontSize:8, color:C.steel,
+                          letterSpacing:"0.14em", textTransform:"uppercase", marginBottom:7 }}>
+                          Document Brief
+                        </div>
+                        <p style={{ fontSize:"0.68rem", color:C.inkMid, fontFamily:C.body,
+                          lineHeight:1.65, marginBottom:10 }}>
+                          {docSummary.summary}
+                        </p>
+                        <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
+                          {(docSummary.topics||[]).map((t,i) => (
+                            <motion.span key={i}
+                              initial={{ opacity:0, scale:0.9 }}
+                              animate={{ opacity:1, scale:1 }}
+                              transition={{ ...SP.tick, delay:i*0.06 }}
+                              style={{ fontSize:"0.6rem", fontFamily:C.mono,
+                                padding:"2px 8px", borderRadius:3,
+                                background:C.goldTrace, border:`1px solid ${C.border}`,
+                                color:C.gold, letterSpacing:"0.06em" }}>
+                              {t}
+                            </motion.span>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   <motion.button
+                    whileHover={{ borderColor:C.borderMid, color:C.ink, x:1, transition:SP.tick }}
                     whileTap={{ scale:0.97, transition:SP.press }}
-                    onClick={()=>{setDocText("");setDocName("");setDocBase64("");setDocIsPdf(false);setMessages([]);setPressure(38);}}
+                    onClick={()=>{setDocText("");setDocName("");setDocBase64("");setDocIsPdf(false);setMessages([]);setMsgTimes([]);setDocSummary(null);setTypingDone({});setFollowUps({});setDocLoaded(false);}}
                     style={{ background:"transparent", border:`1px solid ${C.border}`,
-                      borderRadius:6, color:C.wheatDim, fontSize:8, padding:"7px 14px",
+                      borderRadius:4, color:C.inkDim, fontSize:8, padding:"6px 12px",
                       fontFamily:C.mono, letterSpacing:"0.14em", textTransform:"uppercase",
-                      alignSelf:"flex-start", marginBottom:20, display:"block",
-                      transition:"border-color 150ms ease, color 150ms ease" }}
-                    onMouseEnter={e=>{e.currentTarget.style.borderColor=C.copper;e.currentTarget.style.color=C.copper;}}
-                    onMouseLeave={e=>{e.currentTarget.style.borderColor=C.border;e.currentTarget.style.color=C.wheatDim;}}>
-                    ← Eject
+                      alignSelf:"flex-start", marginBottom:14, display:"block",
+                      cursor:"pointer", transition:"all 150ms" }}>
+                    ← Unload
                   </motion.button>
 
+                  {/* Quick queries */}
                   <div style={{ marginTop:"auto" }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
-                      <div style={{ height:1, flex:1, background:`linear-gradient(90deg, ${C.border}, transparent)` }}/>
-                      <span style={{ fontSize:8, letterSpacing:"0.2em", textTransform:"uppercase",
-                        color:C.wheatDim, fontFamily:C.mono }}>Quick queries</span>
-                      <div style={{ height:1, flex:1, background:`linear-gradient(90deg, transparent, ${C.border})` }}/>
+                    <div style={{ fontFamily:C.mono, fontSize:8, color:C.steel,
+                      letterSpacing:"0.18em", textTransform:"uppercase", marginBottom:10 }}>
+                      Quick Queries
                     </div>
                     <motion.div variants={listV} initial="hidden" animate="show">
-                      {SUGGESTIONS.map((s,i)=>(
-                        <motion.button key={i} variants={dropItem} className="chip"
-                          whileTap={{ scale:0.97, transition:SP.press }}
+                      {SUGGESTIONS.map((s,i) => (
+                        <motion.button key={i} variants={itemV}
+                          whileHover={{ borderColor:C.borderMid, color:C.ink,
+                            background:C.raised, x:2, transition:SP.tick }}
+                          whileTap={{ scale:0.98, transition:SP.press }}
                           onClick={()=>sendMessage(s)}
-                          style={{ display:"block", width:"100%", background:C.glass,
-                            border:`1px solid ${C.border}`, borderRadius:8,
-                            padding:"9px 12px", fontSize:"0.67rem", color:C.wheatDim,
-                            textAlign:"left", fontFamily:C.mono, marginBottom:5,
-                            lineHeight:1.4, backdropFilter:"blur(8px)",
-                            transition:"background 150ms, border-color 150ms, color 150ms" }}>
+                          style={{ display:"block", width:"100%", background:"transparent",
+                            border:`1px solid ${C.border}`, borderRadius:5, padding:"8px 12px",
+                            fontSize:"0.67rem", color:C.inkDim, textAlign:"left",
+                            fontFamily:C.body, marginBottom:5, lineHeight:1.4,
+                            cursor:"pointer", transition:"all 120ms" }}>
                           {s}
                         </motion.button>
                       ))}
@@ -816,13 +782,11 @@ export default function PolicyPal() {
             </AnimatePresence>
           </div>
 
-          <div style={{ height:1,
-            background:`linear-gradient(90deg, transparent, ${C.brass}50, ${C.copper}22, transparent)` }}/>
+          <div style={{ height:1, background:C.border }}/>
         </motion.div>
 
         {/* ══ MAIN PANEL ══ */}
-        <div style={{ flex:1, display:"flex", flexDirection:"column",
-          overflow:"hidden", position:"relative", zIndex:1 }}>
+        <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
           <AnimatePresence mode="wait">
             {!docText ? (
               /* ── UPLOAD ── */
@@ -833,122 +797,109 @@ export default function PolicyPal() {
                   alignItems:"center", justifyContent:"center", padding:"60px 48px" }}>
 
                 <motion.div
-                  initial={{ opacity:0, y:-32, scale:0.93 }}
-                  animate={{ opacity:1, y:0, scale:1 }}
-                  transition={{ ...SP.gravity, delay:0.1 }}
-                  style={{ textAlign:"center", marginBottom:52 }}>
+                  initial={{ opacity:0, y:-16 }} animate={{ opacity:1, y:0 }}
+                  transition={{ ...SP.smooth, delay:0.08 }}
+                  style={{ textAlign:"center", marginBottom:48, maxWidth:560 }}>
+
+                  {/* Live data strip above headline */}
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
-                    gap:16, marginBottom:22 }}>
-                    <motion.div animate={{ scaleX:[1,1.4,1] }}
-                      transition={{ duration:3.5, repeat:Infinity, ease:"easeInOut" }}
-                      style={{ height:1, width:52, background:C.copper, opacity:0.55,
-                        boxShadow:`0 0 8px ${C.copper}`, originX:1 }}/>
-                    <span style={{ fontSize:9, letterSpacing:"0.28em", textTransform:"uppercase",
-                      color:C.copper, fontFamily:C.mono, fontWeight:600,
-                      textShadow:`0 0 14px ${C.copper}` }}>Brass Observatory</span>
-                    <motion.div animate={{ scaleX:[1,1.4,1] }}
-                      transition={{ duration:3.5, repeat:Infinity, ease:"easeInOut", delay:0.5 }}
-                      style={{ height:1, width:52, background:C.copper, opacity:0.55,
-                        boxShadow:`0 0 8px ${C.copper}`, originX:0 }}/>
+                    gap:20, marginBottom:24 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      <motion.div animate={{ opacity:[1,0.3,1] }}
+                        transition={{ duration:1.8, repeat:Infinity, ease:"easeInOut" }}
+                        style={{ width:5, height:5, borderRadius:"50%", background:C.positive }}/>
+                      <span style={{ fontFamily:C.mono, fontSize:9, color:C.steel,
+                        letterSpacing:"0.14em", textTransform:"uppercase" }}>System Online</span>
+                    </div>
+                    <div style={{ width:1, height:12, background:C.border }}/>
+                    <span style={{ fontFamily:C.mono, fontSize:9, color:C.steel,
+                      letterSpacing:"0.14em", textTransform:"uppercase" }}>
+                      PolicyPal Terminal v2
+                    </span>
+                    <div style={{ width:1, height:12, background:C.border }}/>
+                    <SignalBar active={false}/>
                   </div>
-                  <h1 style={{ fontFamily:C.display, fontWeight:800, fontSize:56,
-                    color:C.wheat, margin:"0 0 4px", letterSpacing:"-2px", lineHeight:0.95 }}>
+
+                  <h1 style={{ fontFamily:C.display, fontWeight:800, fontSize:52,
+                    color:C.ink, margin:"0 0 4px", letterSpacing:"-1.5px", lineHeight:0.95 }}>
                     Upload your policy.
                   </h1>
-                  <h1 style={{ fontFamily:C.display, fontWeight:800, fontSize:56,
-                    color:C.copper, margin:"0 0 24px", letterSpacing:"-2px", lineHeight:0.95,
-                    textShadow:`0 0 36px ${C.copper}` }}>
+                  <h1 style={{ fontFamily:C.display, fontWeight:800, fontSize:52,
+                    color:C.gold, margin:"0 0 20px", letterSpacing:"-1.5px", lineHeight:0.95 }}>
                     Ask anything.
                   </h1>
-                  <p style={{ fontSize:14, color:C.wheatDim, fontFamily:C.mono, lineHeight:1.85,
-                    maxWidth:400, margin:"0 auto" }}>
+                  <p style={{ fontSize:14, color:C.inkDim, fontFamily:C.body,
+                    lineHeight:1.8, margin:"0 auto", maxWidth:360 }}>
                     Your HR team can't answer at 11pm.<br/>
-                    <span style={{ color:C.gold }}>We transmit across any hour.</span>
+                    <span style={{ color:C.inkMid }}>The terminal operates around the clock.</span>
                   </p>
                 </motion.div>
 
                 {/* Drop zone */}
                 <motion.div
-                  initial={{ opacity:0, y:-20, scale:0.95 }}
-                  animate={{ opacity:1, y:0, scale:1 }}
-                  transition={{ ...SP.gravity, delay:0.22 }}
-                  style={{ width:"100%", maxWidth:520, position:"relative",
-                    borderRadius:20, padding:"56px 48px", textAlign:"center",
-                    cursor:"pointer", overflow:"visible",
-                    background:dragOver?C.glassMid:C.glass,
-                    backdropFilter:"blur(24px)",
+                  initial={{ opacity:0, y:-12 }} animate={{ opacity:1, y:0 }}
+                  transition={{ ...SP.smooth, delay:0.16 }}
+                  whileHover={{ borderColor:C.borderMid, transition:SP.tick }}
+                  style={{ width:"100%", maxWidth:520, borderRadius:8,
+                    padding:"48px 44px", textAlign:"center", cursor:"pointer",
+                    background:dragOver ? C.raised : C.surface,
                     border:`1px solid ${dragOver?C.borderHigh:C.border}`,
-                    boxShadow:dragOver
-                      ?`0 0 56px ${C.copperGlow}, 0 0 110px ${C.copperTrace}, inset 0 1px 0 ${C.wheatTrace}`
-                      :`0 24px 64px rgba(0,0,0,0.55), inset 0 1px 0 ${C.wheatTrace}`,
-                    transition:"background 200ms, border-color 200ms, box-shadow 200ms" }}
+                    position:"relative", overflow:"hidden",
+                    transition:"background 150ms, border-color 150ms" }}
                   onDragOver={e=>{e.preventDefault();setDragOver(true);}}
                   onDragLeave={()=>setDragOver(false)}
                   onDrop={e=>{e.preventDefault();setDragOver(false);handleFile(e.dataTransfer.files[0]);}}
                   onClick={()=>fileInputRef.current?.click()}>
 
-                  {/* Orbital rings */}
-                  <motion.div animate={{ rotate:360 }} transition={{ duration:25, repeat:Infinity, ease:"linear" }}
-                    style={{ position:"absolute", inset:-22, pointerEvents:"none" }}>
-                    <svg width="100%" height="100%" viewBox="0 0 564 284"
-                      style={{ position:"absolute", inset:0, opacity:dragOver?0.42:0.13 }}>
-                      <ellipse cx="282" cy="142" rx="258" ry="60"
-                        fill="none" stroke={C.copper} strokeWidth="0.8" strokeDasharray="4 14"/>
-                    </svg>
-                  </motion.div>
-                  <motion.div animate={{ rotate:-360 }} transition={{ duration:38, repeat:Infinity, ease:"linear" }}
-                    style={{ position:"absolute", inset:-34, pointerEvents:"none" }}>
-                    <svg width="100%" height="100%" viewBox="0 0 588 308"
-                      style={{ position:"absolute", inset:0, opacity:dragOver?0.28:0.07 }}>
-                      <ellipse cx="294" cy="154" rx="275" ry="72"
-                        fill="none" stroke={C.brass} strokeWidth="0.8" strokeDasharray="2 18"/>
-                    </svg>
-                  </motion.div>
+                  {/* Corner accents */}
+                  {[[0,0,0],[0,1,90],[1,0,270],[1,1,180]].map(([r,c,rot],i)=>(
+                    <div key={i} style={{
+                      position:"absolute",
+                      top: r===0?12:"auto", bottom: r===1?12:"auto",
+                      left: c===0?12:"auto", right: c===1?12:"auto",
+                      width:12, height:12,
+                      borderTop: r===0?`1px solid ${dragOver?C.gold:C.borderMid}`:"none",
+                      borderLeft: c===0?`1px solid ${dragOver?C.gold:C.borderMid}`:"none",
+                      borderBottom: r===1?`1px solid ${dragOver?C.gold:C.borderMid}`:"none",
+                      borderRight: c===1?`1px solid ${dragOver?C.gold:C.borderMid}`:"none",
+                      transition:"border-color 150ms",
+                    }}/>
+                  ))}
 
-                  <motion.div animate={{ y:dragOver?-5:0 }} transition={SP.snap}
-                    style={{ width:64, height:64, borderRadius:16, background:C.glass,
-                      backdropFilter:"blur(12px)",
+                  <motion.div animate={{ y:dragOver?-4:0 }} transition={SP.mech}
+                    style={{ width:52, height:52, borderRadius:6, background:C.raised,
                       border:`1px solid ${dragOver?C.borderHigh:C.border}`,
                       display:"flex", alignItems:"center", justifyContent:"center",
-                      margin:"0 auto 22px",
-                      boxShadow:dragOver?`0 0 32px ${C.copperGlow}`:`0 0 12px rgba(0,0,0,0.35)`,
-                      transition:"box-shadow 200ms, border-color 200ms" }}>
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
-                      stroke={dragOver?C.copper:C.wheatDim} strokeWidth="1.5"
+                      margin:"0 auto 18px", transition:"border-color 150ms" }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                      stroke={dragOver?C.gold:C.steel} strokeWidth="1.5"
                       strokeLinecap="round" strokeLinejoin="round"
-                      style={{ filter:dragOver?`drop-shadow(0 0 8px ${C.copper})`:"none",
-                        transition:"all 200ms ease" }}>
+                      style={{ transition:"stroke 150ms" }}>
                       <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
                       <polyline points="17 8 12 3 7 8"/>
                       <line x1="12" y1="3" x2="12" y2="15"/>
                     </svg>
                   </motion.div>
 
-                  <p style={{ fontFamily:C.display, fontWeight:700, fontSize:"1.2rem",
-                    color:dragOver?C.copper:C.wheatOff, marginBottom:8,
-                    textShadow:dragOver?`0 0 18px ${C.copper}`:"none",
-                    transition:"color 200ms, text-shadow 200ms" }}>
-                    {dragOver?"Release to transmit":"Insert pneumatic tube"}
+                  <p style={{ fontFamily:C.display, fontWeight:700, fontSize:"1.1rem",
+                    color:dragOver?C.gold:C.inkOff, marginBottom:6, transition:"color 150ms" }}>
+                    {dragOver ? "Release to load document" : "Load document"}
                   </p>
-                  <p style={{ fontFamily:C.mono, fontSize:"0.7rem", color:C.wheatDim,
-                    marginBottom:28, lineHeight:1.75 }}>
+                  <p style={{ fontFamily:C.mono, fontSize:"0.68rem", color:C.inkDim,
+                    marginBottom:22, lineHeight:1.7 }}>
                     PDF or TXT · drag & drop or click to browse
                   </p>
 
                   <motion.div
-                    whileHover={{ scale:1.03, transition:SP.snap }}
+                    whileHover={{ scale:1.02, borderColor:C.borderMid, transition:SP.tick }}
                     whileTap={{ scale:0.97, transition:SP.press }}
                     style={{ display:"inline-flex", alignItems:"center", gap:8,
-                      background:dragOver
-                        ?`linear-gradient(135deg,${C.copper},${C.brass})`
-                        :`linear-gradient(135deg,${C.copper}16,${C.brass}12)`,
-                      color:dragOver?C.void:C.copper, borderRadius:10,
-                      padding:"13px 32px", fontSize:"0.7rem", fontFamily:C.mono,
-                      letterSpacing:"0.16em", textTransform:"uppercase",
-                      border:`1px solid ${dragOver?C.copper:C.borderMid}`,
-                      boxShadow:dragOver?`0 0 28px ${C.copperGlow}`:`0 0 14px ${C.copperTrace}`,
-                      fontWeight:600, transition:"all 200ms ease" }}>
-                    Send by Tube
+                      background:"transparent", color:dragOver?C.gold:C.inkMid,
+                      borderRadius:5, padding:"10px 24px", fontSize:"0.7rem",
+                      fontFamily:C.mono, letterSpacing:"0.14em", textTransform:"uppercase",
+                      border:`1px solid ${dragOver?C.borderHigh:C.border}`,
+                      fontWeight:500, transition:"all 150ms", cursor:"pointer" }}>
+                    Browse Files
                   </motion.div>
                   <input ref={fileInputRef} type="file" accept=".txt,.md,.pdf"
                     style={{ display:"none" }} onChange={e=>handleFile(e.target.files[0])}/>
@@ -959,169 +910,258 @@ export default function PolicyPal() {
               /* ── CHAT ── */
               <motion.div key="chat"
                 initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-                transition={{ duration:0.2 }}
+                transition={{ duration:0.18 }}
                 style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
 
-                {/* Header */}
-                <motion.div
-                  initial={{ opacity:0, y:-12 }} animate={{ opacity:1, y:0 }}
-                  transition={{ ...SP.gravity, delay:0.06 }}
-                  style={{ padding:"12px 36px", background:`rgba(10,5,0,0.92)`,
-                    backdropFilter:"blur(28px)", borderBottom:`1px solid ${C.border}`,
-                    display:"flex", alignItems:"center", gap:12, flexShrink:0 }}>
-                  <motion.div
-                    animate={{ scale:[1,1.4,1], opacity:[1,0.4,1] }}
-                    transition={{ duration:2.2, repeat:Infinity, ease:"easeInOut" }}
-                    style={{ width:7, height:7, borderRadius:"50%", background:C.copper,
-                      boxShadow:`0 0 12px ${C.copper}` }}/>
-                  <span style={{ fontSize:"0.7rem", color:C.wheatDim, fontFamily:C.mono,
-                    letterSpacing:"0.06em" }}>
-                    Pressurised · <span style={{ color:C.wheatOff }}>{docName}</span>
-                  </span>
-                  <div style={{ marginLeft:"auto", fontSize:8, color:C.wheatFaint,
-                    fontFamily:C.mono, letterSpacing:"0.14em", textTransform:"uppercase" }}>
-                    {messages.filter(m=>m.role==="user").length} transmissions
+                {/* Header bar */}
+                <div style={{ padding:"10px 28px", background:C.void,
+                  borderBottom:`1px solid ${C.border}`,
+                  display:"flex", alignItems:"center", gap:14, flexShrink:0 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
+                    <motion.div animate={{ opacity:[1,0.4,1], scale:[1,1.15,1] }}
+                      transition={{ duration:2, repeat:Infinity, ease:"easeInOut" }}
+                      style={{ width:6, height:6, borderRadius:"50%",
+                        background:C.positive, flexShrink:0 }}/>
+                    <span style={{ fontSize:"0.7rem", color:C.inkDim,
+                      fontFamily:C.mono, letterSpacing:"0.06em" }}>
+                      <span style={{ color:C.inkOff }}>{docName}</span>
+                    </span>
                   </div>
-                </motion.div>
+
+                  {/* Pressure bar — grows with queries */}
+                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <span style={{ fontFamily:C.mono, fontSize:8, color:C.steel,
+                      letterSpacing:"0.1em", textTransform:"uppercase" }}>Load</span>
+                    <div style={{ width:60, height:3, background:C.border, borderRadius:2, overflow:"hidden" }}>
+                      <motion.div
+                        animate={{ width:`${Math.min(queryCount*15, 100)}%` }}
+                        transition={SP.smooth}
+                        style={{ height:"100%", background:C.gold, borderRadius:2 }}/>
+                    </div>
+                  </div>
+
+                  {/* Search */}
+                  <motion.div
+                    animate={{ borderColor:searchFocused?C.borderMid:C.border }}
+                    transition={{ duration:0.15 }}
+                    style={{ flex:1, display:"flex", alignItems:"center", gap:8,
+                      background:C.surface, border:`1px solid ${C.border}`,
+                      borderRadius:5, padding:"5px 11px", maxWidth:300, marginLeft:"auto" }}>
+                    <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                      <circle cx="5" cy="5" r="3.5"
+                        stroke={searchFocused?C.gold:C.steel} strokeWidth="1"/>
+                      <path d="M8 8l2.5 2.5"
+                        stroke={searchFocused?C.gold:C.steel} strokeWidth="1" strokeLinecap="round"/>
+                    </svg>
+                    <input value={searchTerm} onChange={e=>setSearchTerm(e.target.value)}
+                      onFocus={()=>setSearchFocused(true)} onBlur={()=>setSearchFocused(false)}
+                      placeholder="Search conversation..."
+                      style={{ flex:1, background:"transparent", border:"none", outline:"none",
+                        fontFamily:C.mono, fontSize:"0.7rem", color:C.ink, caretColor:C.gold }}/>
+                    {searchTerm && (
+                      <button onClick={()=>setSearchTerm("")}
+                        style={{ background:"transparent", border:"none",
+                          color:C.inkDim, cursor:"pointer", fontSize:10, padding:0 }}>✕</button>
+                    )}
+                  </motion.div>
+
+                  <div style={{ fontFamily:C.mono, fontSize:8, color:C.steel,
+                    letterSpacing:"0.12em", textTransform:"uppercase", flexShrink:0 }}>
+                    <TickerNumber value={queryCount}
+                      style={{ fontFamily:C.mono, fontSize:11, color:C.gold }}/> queries
+                  </div>
+                </div>
 
                 {/* Messages */}
-                <div style={{ flex:1, overflowY:"auto", padding:"28px 40px",
-                  display:"flex", flexDirection:"column", gap:20 }}>
+                <div style={{ flex:1, overflowY:"auto", padding:"20px 32px",
+                  display:"flex", flexDirection:"column", gap:14 }}>
 
-                  {/* Welcome — hanging with rotation sway */}
+                  {/* Welcome */}
                   {messages.length===0 && (
                     <motion.div
-                      initial={{ opacity:0, y:-22, scale:0.93 }}
+                      initial={{ opacity:0, y:-14, scale:0.97 }}
                       animate={{ opacity:1, y:0, scale:1 }}
-                      transition={SP.gravity}>
-                      <motion.div
-                        animate={{ rotate:[-0.6,0.6,-0.6], y:[0,-2,0] }}
-                        transition={{ duration:6, repeat:Infinity, ease:"easeInOut" }}
-                        style={{ border:`1px solid ${C.border}`, borderRadius:18,
-                          padding:"24px 26px", background:C.glass,
-                          backdropFilter:"blur(20px)", position:"relative", overflow:"hidden" }}>
-                        <div style={{ position:"absolute", top:0, left:0, right:0, height:1,
-                          background:`linear-gradient(90deg,${C.copper}60,${C.brass}40,transparent)` }}/>
-                        <div style={{ position:"absolute", left:0, top:0, bottom:0, width:2,
-                          background:`linear-gradient(180deg,${C.copper},${C.brass})` }}/>
-                        {/* Gear decoration */}
-                        <div style={{ position:"absolute", right:16, top:12, opacity:0.12 }}>
-                          <svg width="52" height="52" viewBox="0 0 52 52">
-                            <circle cx="26" cy="26" r="18" fill="none"
-                              stroke={C.brass} strokeWidth="1.5" strokeDasharray="3 6"/>
-                            <circle cx="26" cy="26" r="8" fill="none"
-                              stroke={C.copper} strokeWidth="1"/>
-                            <circle cx="26" cy="26" r="3" fill={C.brass}/>
-                          </svg>
-                        </div>
-                        <p style={{ fontFamily:C.display, fontWeight:700, fontSize:"1rem",
-                          color:C.wheat, marginBottom:8 }}>
-                          Transmission received. I'm PolicyPal.
-                        </p>
-                        <p style={{ fontFamily:C.mono, fontSize:"0.75rem", color:C.wheatDim,
-                          lineHeight:1.85, marginBottom:16 }}>
-                          Document indexed and pressurised. Send any query —{" "}
-                          <span style={{ color:C.gold }}>I answer from your policy, not from memory.</span>
-                        </p>
-                        <motion.div
-                          variants={listV} initial="hidden" animate="show"
-                          style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-                          {SUGGESTIONS.map((s,i)=>(
-                            <motion.button key={i} variants={dropItem} className="chip"
-                              whileTap={{ scale:0.96, transition:SP.press }}
-                              onClick={()=>sendMessage(s)}
-                              style={{ padding:"5px 12px", border:`1px solid ${C.border}`,
-                                borderRadius:20, fontSize:"0.66rem", fontFamily:C.mono,
-                                color:C.wheatDim, background:C.glass, cursor:"pointer",
-                                backdropFilter:"blur(8px)",
-                                transition:"background 150ms, border-color 150ms, color 150ms" }}>
-                              {s}
-                            </motion.button>
-                          ))}
-                        </motion.div>
+                      transition={SP.smooth}
+                      style={{ border:`1px solid ${C.border}`, borderRadius:8,
+                        padding:"20px 22px", background:C.surface,
+                        position:"relative", overflow:"hidden" }}>
+                      {/* Gold top rule */}
+                      <div style={{ position:"absolute", top:0, left:0, right:0, height:1,
+                        background:`linear-gradient(90deg,${C.gold},rgba(200,169,110,0.3),transparent)` }}/>
+                      <div style={{ position:"absolute", left:0, top:0, bottom:0, width:2,
+                        background:C.gold }}/>
+                      <p style={{ fontFamily:C.display, fontWeight:700, fontSize:"0.95rem",
+                        color:C.ink, marginBottom:7 }}>
+                        Terminal ready. Document indexed.
+                      </p>
+                      <p style={{ fontFamily:C.body, fontSize:"0.75rem", color:C.inkDim,
+                        lineHeight:1.8, marginBottom:14 }}>
+                        I've read your document in full.{" "}
+                        <span style={{ color:C.inkOff }}>Ask me anything — I respond from the source.</span>
+                      </p>
+                      <motion.div variants={listV} initial="hidden" animate="show"
+                        style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
+                        {SUGGESTIONS.map((s,i) => (
+                          <motion.button key={i} variants={itemV}
+                            whileHover={{ borderColor:C.borderMid, color:C.gold,
+                              background:C.raised, transition:SP.tick }}
+                            whileTap={{ scale:0.97, transition:SP.press }}
+                            onClick={()=>sendMessage(s)}
+                            style={{ padding:"5px 12px", border:`1px solid ${C.border}`,
+                              borderRadius:4, fontSize:"0.65rem", fontFamily:C.mono,
+                              color:C.inkDim, background:"transparent", cursor:"pointer",
+                              letterSpacing:"0.04em", transition:"all 120ms" }}>
+                            {s}
+                          </motion.button>
+                        ))}
                       </motion.div>
                     </motion.div>
                   )}
 
-                  {messages.map((m,i)=><MessageBubble key={i} msg={m} index={i}/>)}
+                  {/* Messages */}
+                  {messages.map((m, i) => {
+                    const isUser = m.role==="user";
+                    const isLastAssistant = !isUser && i===messages.length-1 && !typingDone[i];
+                    return (
+                      <motion.div key={i}
+                        initial={{ opacity:0, y:-10 }} animate={{ opacity:1, y:0 }}
+                        transition={SP.smooth}
+                        style={{ display:"flex", justifyContent:isUser?"flex-end":"flex-start",
+                          gap:10, alignItems:"flex-end" }}>
+                        {!isUser && (
+                          <div style={{ width:24, height:24, borderRadius:4, flexShrink:0,
+                            background:C.raised, border:`1px solid ${C.borderMid}`,
+                            display:"flex", alignItems:"center", justifyContent:"center",
+                            fontSize:9, color:C.gold, fontFamily:C.display,
+                            fontWeight:800, marginBottom:2 }}>P</div>
+                        )}
+                        <motion.div
+                          whileHover={{ y:-2, borderColor:C.borderMid, transition:SP.tick }}
+                          style={{
+                            maxWidth:"74%", padding:"12px 15px",
+                            borderRadius:isUser?"8px 8px 3px 8px":"8px 8px 8px 3px",
+                            position:"relative", transition:"border-color 150ms",
+                            ...(isUser ? {
+                              background:C.raised,
+                              border:`1px solid ${C.borderMid}`,
+                            } : {
+                              background:C.surface,
+                              border:`1px solid ${C.border}`,
+                              borderLeft:`2px solid ${C.gold}`,
+                            })
+                          }}>
+                          {!isUser && (
+                            <div style={{ position:"absolute", top:0, left:0, right:0, height:1,
+                              background:`linear-gradient(90deg,rgba(200,169,110,0.4),transparent)` }}/>
+                          )}
+                          {isUser ? (
+                            <p style={{ fontSize:"0.82rem", color:C.ink, margin:0,
+                              lineHeight:1.72, fontFamily:C.body }}>
+                              <HighlightedText text={m.content} searchTerm={searchTerm}/>
+                            </p>
+                          ) : isLastAssistant ? (
+                            <Typewriter text={m.content} searchTerm={searchTerm}
+                              onComplete={()=>onTypingComplete(i, m.content)}/>
+                          ) : (
+                            <div>{renderMsg(m.content, searchTerm)}</div>
+                          )}
+                          {/* Live timestamp */}
+                          {msgTimes[i] && (
+                            <div style={{ marginTop:6, display:"flex",
+                              justifyContent:isUser?"flex-end":"flex-start" }}>
+                              <LiveTimestamp createdAt={msgTimes[i]}/>
+                            </div>
+                          )}
+                          {!isUser && typingDone[i] && <CopyBtn text={m.content}/>}
+                        </motion.div>
+                      </motion.div>
+                    );
+                  })}
 
-                  {loading&&(
-                    <motion.div initial={{ opacity:0, y:-12 }} animate={{ opacity:1, y:0 }}
-                      transition={SP.gravity}
-                      style={{ display:"flex", gap:12, alignItems:"flex-end" }}>
-                      <motion.div animate={{ opacity:[1,0.4,1] }}
-                        transition={{ duration:1.5, repeat:Infinity, ease:"easeInOut" }}
-                        style={{ width:28, height:28, borderRadius:"50%", flexShrink:0,
-                          background:`radial-gradient(circle at 38% 32%, ${C.copperBright}48, ${C.copper}20)`,
-                          border:`1px solid ${C.copper}50`,
-                          display:"flex", alignItems:"center", justifyContent:"center",
-                          fontSize:10, color:C.gold, fontFamily:C.display, fontWeight:800 }}>P</motion.div>
-                      <div style={{ background:C.glass, backdropFilter:"blur(16px)",
-                        border:`1px solid ${C.border}`, borderLeft:`2px solid ${C.copper}`,
-                        borderRadius:"16px 16px 16px 4px", padding:"16px 22px" }}>
+                  {/* Follow-up suggestions */}
+                  {Object.entries(followUps).map(([idx, suggestions]) => {
+                    if (parseInt(idx)!==messages.length-1) return null;
+                    return (
+                      <motion.div key={`fu-${idx}`}
+                        initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }}
+                        transition={{ ...SP.smooth, delay:0.2 }}
+                        style={{ paddingLeft:34 }}>
+                        <div style={{ fontFamily:C.mono, fontSize:8, color:C.gold,
+                          letterSpacing:"0.14em", textTransform:"uppercase", marginBottom:7 }}>
+                          Continue querying
+                        </div>
+                        <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
+                          {suggestions.map((s,i) => (
+                            <motion.button key={i}
+                              initial={{ opacity:0, scale:0.94 }}
+                              animate={{ opacity:1, scale:1 }}
+                              transition={{ ...SP.smooth, delay:i*0.08 }}
+                              whileHover={{ borderColor:C.borderMid, color:C.gold,
+                                background:C.raised, transition:SP.tick }}
+                              whileTap={{ scale:0.97, transition:SP.press }}
+                              onClick={()=>sendMessage(s)}
+                              style={{ padding:"5px 13px", border:`1px solid ${C.border}`,
+                                borderRadius:4, fontSize:"0.67rem", fontFamily:C.mono,
+                                color:C.inkDim, background:"transparent", cursor:"pointer",
+                                letterSpacing:"0.04em", transition:"all 120ms" }}>
+                              {s}
+                            </motion.button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+
+                  {/* Loading */}
+                  {loading && (
+                    <motion.div initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }}
+                      transition={SP.smooth}
+                      style={{ display:"flex", gap:10, alignItems:"flex-end" }}>
+                      <div style={{ width:24, height:24, borderRadius:4, flexShrink:0,
+                        background:C.raised, border:`1px solid ${C.borderMid}`,
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        fontSize:9, color:C.gold, fontFamily:C.display, fontWeight:800 }}>P</div>
+                      <div style={{ background:C.surface, border:`1px solid ${C.border}`,
+                        borderLeft:`2px solid ${C.gold}`,
+                        borderRadius:"8px 8px 8px 3px", padding:"14px 18px" }}>
                         <WaveDots/>
                       </div>
                     </motion.div>
                   )}
 
                   <AnimatePresence>
-                    {error&&(
-                      <motion.div initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }}
-                        exit={{ opacity:0 }} transition={SP.gravity}
-                        style={{ background:C.glass, border:`1px solid ${C.brass}50`,
-                          borderRadius:10, padding:"10px 14px", fontSize:11,
-                          color:C.gold, fontFamily:C.mono, backdropFilter:"blur(12px)" }}>
-                        {error}
-                      </motion.div>
+                    {error && (
+                      <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }}
+                        exit={{ opacity:0 }} transition={SP.smooth}
+                        style={{ background:C.raised, border:`1px solid ${C.border}`,
+                          borderRadius:6, padding:"8px 12px", fontSize:11,
+                          color:C.negative, fontFamily:C.mono }}>{error}</motion.div>
                     )}
                   </AnimatePresence>
                   <div ref={chatEndRef}/>
                 </div>
 
                 {/* Input */}
-                <div style={{ padding:"14px 40px 22px",
-                  background:`rgba(10,5,0,0.93)`, backdropFilter:"blur(28px)",
+                <div style={{ padding:"12px 32px 16px", background:C.void,
                   borderTop:`1px solid ${C.border}`, flexShrink:0 }}>
-                  <div style={{ display:"flex", gap:12, alignItems:"flex-end",
-                    position:"relative" }}>
-
-                    {/* Breathing copper ring */}
-                    <AnimatePresence>
-                      {focused&&(
-                        <motion.div
-                          initial={{ opacity:0, scale:0.97 }}
-                          animate={{ opacity:[0.16,0.48,0.16], scale:1 }}
-                          exit={{ opacity:0, scale:0.97 }}
-                          transition={{
-                            opacity:{ duration:2.8, repeat:Infinity, ease:"easeInOut" },
-                            scale:SP.snap,
-                          }}
-                          style={{ position:"absolute", inset:-3, borderRadius:19,
-                            border:`1px solid ${C.copper}`,
-                            boxShadow:`0 0 22px ${C.copperGlow}`, pointerEvents:"none", zIndex:0 }}/>
-                      )}
-                    </AnimatePresence>
-
+                  <div style={{ display:"flex", gap:8, alignItems:"flex-end" }}>
                     <motion.div
-                      animate={{
-                        borderColor:focused?C.borderHigh:C.border,
-                        boxShadow:focused
-                          ?`0 0 0 1px ${C.copperTrace}, 0 0 30px ${C.copperTrace}`
-                          :`0 8px 32px rgba(0,0,0,0.55)`,
-                      }}
-                      transition={{ duration:0.2 }}
-                      style={{ flex:1, display:"flex", gap:12, alignItems:"flex-end",
-                        background:C.glassMid, backdropFilter:"blur(16px)",
-                        border:`1px solid ${C.border}`, borderRadius:16,
-                        padding:"12px 12px 12px 20px", position:"relative", zIndex:1 }}>
+                      animate={{ borderColor:focused?C.borderMid:C.border }}
+                      transition={{ duration:0.15 }}
+                      style={{ flex:1, display:"flex", gap:8, alignItems:"flex-end",
+                        background:C.surface, border:`1px solid ${C.border}`,
+                        borderRadius:7, padding:"10px 10px 10px 16px",
+                        position:"relative", overflow:"hidden" }}>
+                      {/* Panel scan line */}
+                      <PanelScan scanning={scanning}/>
+
                       <textarea ref={textareaRef}
-                        onFocus={()=>setFocused(true)}
-                        onBlur={()=>setFocused(false)}
+                        onFocus={()=>setFocused(true)} onBlur={()=>setFocused(false)}
                         style={{ flex:1, background:"transparent", border:"none",
-                          color:C.wheat, fontFamily:C.mono, fontSize:"0.82rem",
+                          color:C.ink, fontFamily:C.body, fontSize:"0.82rem",
                           resize:"none", lineHeight:1.7, maxHeight:120,
-                          outline:"none", padding:"2px 0", caretColor:C.copper }}
-                        placeholder="Send your query by tube..."
+                          outline:"none", padding:"2px 0", caretColor:C.gold }}
+                        placeholder="Query the terminal..."
                         value={input} rows={1}
                         onChange={e=>{
                           setInput(e.target.value);
@@ -1132,40 +1172,30 @@ export default function PolicyPal() {
                           if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();}
                         }}/>
 
-                      {/* Send button — heartbeat */}
                       <motion.button
                         disabled={!input.trim()||loading}
-                        whileHover={!input.trim()||loading?{}:{ scale:1.08, transition:SP.snap }}
-                        whileTap={!input.trim()||loading?{}:{ scale:0.9, transition:SP.press }}
-                        animate={input.trim()&&!loading?{
-                          scale:[1,1.06,1,1.03,1],
-                          boxShadow:[
-                            `0 0 10px ${C.copperGlow}`,
-                            `0 0 26px ${C.copperGlow}`,
-                            `0 0 10px ${C.copperGlow}`,
-                            `0 0 18px ${C.copperGlow}`,
-                            `0 0 10px ${C.copperGlow}`,
-                          ],
-                        }:{ scale:1, boxShadow:"none" }}
-                        transition={{ duration:2.4, repeat:Infinity, ease:"easeInOut" }}
+                        whileHover={!input.trim()||loading ? {} : {
+                          scale:1.05, borderColor:C.goldDim, transition:SP.tick }}
+                        whileTap={!input.trim()||loading ? {} : {
+                          scale:0.93, transition:SP.press }}
                         onClick={()=>sendMessage()}
-                        style={{ width:42, height:42, borderRadius:12, flexShrink:0,
-                          background:!input.trim()||loading
-                            ?C.glass
-                            :`linear-gradient(135deg,${C.copper},${C.brass})`,
-                          border:`1px solid ${!input.trim()||loading?C.border:C.copper}`,
+                        style={{ width:36, height:36, borderRadius:6, flexShrink:0,
+                          background:!input.trim()||loading ? C.raised : C.gold,
+                          border:`1px solid ${!input.trim()||loading?C.border:C.gold}`,
                           cursor:!input.trim()||loading?"not-allowed":"pointer",
-                          color:!input.trim()||loading?C.wheatDim:C.void,
+                          color:!input.trim()||loading?C.inkDim:C.void,
                           display:"flex", alignItems:"center", justifyContent:"center",
-                          fontSize:"1rem", fontWeight:800, fontFamily:C.display }}>
+                          fontSize:"1rem", fontWeight:700, transition:"all 150ms" }}>
                         ↑
                       </motion.button>
                     </motion.div>
                   </div>
-                  <p style={{ fontSize:"0.6rem", color:C.wheatFaint, textAlign:"center",
-                    marginTop:10, fontFamily:C.mono, letterSpacing:"0.1em" }}>
-                    Enter to transmit · Shift+Enter for new line
-                  </p>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+                    marginTop:7 }}>
+                    <p style={{ fontSize:"0.58rem", color:C.inkFaint, fontFamily:C.mono,
+                      letterSpacing:"0.1em" }}>Enter to send · Shift+Enter for new line</p>
+                    <SignalBar active={loading}/>
+                  </div>
                 </div>
               </motion.div>
             )}
