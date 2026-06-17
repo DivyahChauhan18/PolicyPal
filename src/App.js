@@ -362,7 +362,7 @@ export default function PolicyPal() {
   function parseJSON(raw) {
     try {
       const stripped=raw.replace(/```json\s*/g,"").replace(/```\s*/g,"").trim();
-      const match=stripped.match(/[\[{][\s\S]*[\]}]/);
+      const match=stripped.match(/[[{][\s\S]*[\]}]/);
       if(match) return JSON.parse(match[0]);
     } catch {}
     return null;
@@ -555,10 +555,10 @@ alignments = where they match well`;
   const onTypingComplete=useCallback((idx,content)=>{
     setTypingDone(p=>({...p,[idx]:true}));
     generateFollowUps(content,idx);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
 
   function exportChat() {
-    const lines=messages.map(m=>`[${m.role.toUpperCase()}]\n${m.content}`).join("\n\n---\n\n");
     const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>PolicyPal Export — ${docName}</title><style>body{font-family:Georgia,serif;max-width:720px;margin:48px auto;color:#1a1a1a;line-height:1.8}h1{font-size:24px;margin-bottom:8px}p.meta{color:#666;font-size:13px;margin-bottom:32px}hr{border:none;border-top:1px solid #ddd;margin:24px 0}.role{font-family:monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#999;margin-bottom:6px}.content{font-size:14px;white-space:pre-wrap}</style></head><body><h1>PolicyPal — ${docName}</h1><p class="meta">Exported ${new Date().toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'})}</p>${messages.map(m=>`<div><div class="role">${m.role}</div><div class="content">${m.content.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div></div><hr/>`).join("")}</body></html>`;
     const win=window.open("","_blank");
     win.document.write(html);
